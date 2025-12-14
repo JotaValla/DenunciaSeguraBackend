@@ -1,0 +1,655 @@
+openapi: 3.0.3
+info:
+  title: Microservicio de auditoría y trazabilidad
+  description: >
+    Servicio centralizado para registrar eventos y soportar trazabilidad extremo a extremo
+    entre microservicios (Auth, Denuncias, Notificaciones, Evidencias).
+    Objetivos:
+    - Registrar acciones relevantes (quién, qué, cuándo, dónde, por qué).
+    - Mantener integridad mediante cadena hash (prevHash -> hash) para evidenciar alteraciones.
+    - Proveer consultas para auditoría (filtros, paginación, trazas por entidad, cadena de custodia).
+    Principio de privacidad: no se expone PII en payloads. Los metadatos se limitan a información necesaria y controlada.
+  version: 1.0.0
+
+servers:
+  - url: /api/v1/auditoria
+    description: Gateway auditoría path
+
+tags:
+  - name: Consultas
+    description: Consultas de eventos para auditoría (Auditor/Admin; acceso según rol).
+  - name: Trazas
+    description: Consultas por entidad de negocio (denuncias, evidencias, usuarios).
+  - name: Integridad
+    description: Verificación de integridad de la cadena hash.
+  - name: Interno
+    description: Endpoints S2S para ingestión de eventos desde otros microservicios.
+
+paths:
+  # ----------------------------------------------------------------
+  # consultas para auditoría
+  # ----------------------------------------------------------------
+  /eventos:
+    get:
+      tags: [Consultas]
+      summary: Buscar eventos de auditoría
+      description: >
+        Devuelve eventos según filtros. Restringido a roles autorizados (AUDITOR, ADMIN_PLATAFORMA; opcional SUPERVISOR_DENUNCIAS).
+        No retorna PII; el campo metadata debe ser seguro y controlado por el emisor.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 0, minimum: 0 }
+        - name: size
+          in: query
+          schema: { type: integer, default: 20, minimum: 1, maximum: 200 }
+        - name: sort
+          in: query
+          description: Campo de ordenamiento; prefijo '-' para descendente.
+          schema: { type: string, default: "-occurredAt" }
+
+        - name: entityType
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/EntityTypeEnum' }
+        - name: entityId
+          in: query
+          required: false
+          schema: { type: string }
+        - name: action
+          in: query
+          required: false
+          schema: { type: string }
+        - name: sourceService
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/SourceServiceEnum' }
+
+        - name: actorType
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/ActorTypeEnum' }
+        - name: actorUserId
+          in: query
+          required: false
+          schema: { type: integer, format: int64 }
+        - name: actorRole
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/RolEnum' }
+
+        - name: correlationId
+          in: query
+          required: false
+          schema: { type: string }
+
+        - name: from
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+
+      responses:
+        '200':
+          description: Lista paginada de eventos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditEventPageResponse'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Prohibido (rol no habilitado)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '400':
+          description: Filtros inválidos
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /eventos/{id}:
+    get:
+      tags: [Consultas]
+      summary: Obtener un evento de auditoría
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: X-Correlation-Id
+          in: header
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: Evento encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditEventResponse' }
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Prohibido
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: No encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  # ----------------------------------------------------------------
+  # trazas por entidad
+  # ----------------------------------------------------------------
+  /trazas/{entityType}/{entityId}:
+    get:
+      tags: [Trazas]
+      summary: Obtener traza completa por entidad
+      description: >
+        Devuelve la secuencia de eventos asociada a una entidad (por ejemplo, una denuncia o evidencia),
+        ordenada por fecha de ocurrencia. Útil para auditoría de proceso y transparencia.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: entityType
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/EntityTypeEnum' }
+        - name: entityId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: from
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+        - name: includeIntegrity
+          in: query
+          required: false
+          description: Si es true, incluye campos hash/prevHash para verificación de integridad.
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: Traza de la entidad
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityTraceResponse'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Prohibido
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: Entidad sin eventos o no encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /custodia/evidencias/{evidenceId}:
+    get:
+      tags: [Trazas]
+      summary: Obtener cadena de custodia de una evidencia
+      description: >
+        Devuelve eventos relevantes de custodia para una evidencia: creación de pre-carga, confirmación,
+        adjunto a denuncia, emisiones de URL firmada, etc. Diseñado para el rol AUDITOR.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: evidenceId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: includeIntegrity
+          in: query
+          required: false
+          schema: { type: boolean, default: true }
+      responses:
+        '200':
+          description: Cadena de custodia
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustodyChainResponse' }
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Prohibido
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: Evidencia sin eventos o no encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  # ----------------------------------------------------------------
+  # verificación de integridad
+  # ----------------------------------------------------------------
+  /integridad/verificar:
+    get:
+      tags: [Integridad]
+      summary: Verificar integridad de la cadena hash
+      description: >
+        Verifica continuidad hash (prevHash -> hash) en un rango de tiempo o por entityType/entityId.
+        Retorna un resultado con estado, primer evento inconsistente (si aplica) y métricas básicas.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+        - name: entityType
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/EntityTypeEnum' }
+        - name: entityId
+          in: query
+          required: false
+          schema: { type: string }
+        - name: maxScan
+          in: query
+          required: false
+          description: Límite de eventos a escanear para proteger el sistema.
+          schema: { type: integer, default: 5000, minimum: 1, maximum: 200000 }
+      responses:
+        '200':
+          description: Resultado de verificación
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IntegrityCheckResponse' }
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Prohibido
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '400':
+          description: Parámetros inválidos
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  # ----------------------------------------------------------------
+  # ingestión s2s
+  # ----------------------------------------------------------------
+  /interno/eventos:
+    post:
+      tags: [Interno]
+      summary: Ingerir evento de auditoría (S2S)
+      description: >
+        Endpoint S2S para que otros microservicios registren eventos.
+        Reglas:
+        - Idempotencia por eventId (reintentos no deben duplicar).
+        - El servicio calcula hash y encadena prevHash automáticamente.
+        - metadata debe evitar PII; se recomienda usar IDs y campos neutrales.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: X-Correlation-Id
+          in: header
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AuditIngestRequest' }
+      responses:
+        '202':
+          description: Evento aceptado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditAcceptedResponse' }
+        '400':
+          description: Evento inválido
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401':
+          description: No autorizado (credencial interna inválida o ausente)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Prohibido (microservicio no permitido)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: Duplicado (eventId ya registrado)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Internal-Service-Key
+
+  schemas:
+    # ---------------------------------------------------------------
+    # error estándar
+    # ---------------------------------------------------------------
+    ErrorResponse:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-12-14T23:45:00Z"
+        status:
+          type: integer
+          example: 403
+        error:
+          type: string
+          example: "Forbidden"
+        message:
+          type: string
+          example: "No tiene permisos para acceder a auditoría."
+        path:
+          type: string
+          example: "/api/v1/auditoria/eventos"
+        correlationId:
+          type: string
+          example: "corr_9a1d2f7c"
+
+    # ---------------------------------------------------------------
+    # enums
+    # ---------------------------------------------------------------
+    SourceServiceEnum:
+      type: string
+      enum: [AUTH, DENUNCIAS, NOTIFICACIONES, EVIDENCIAS, GATEWAY, OTRO]
+
+    ActorTypeEnum:
+      type: string
+      enum: [USER, SERVICE, SYSTEM]
+
+    RolEnum:
+      type: string
+      enum:
+        - ADMIN_PLATAFORMA
+        - SUPERVISOR_DENUNCIAS
+        - JEFE_INTERNO
+        - JEFE_EXTERNO
+        - OPERADOR_INTERNO
+        - OPERADOR_EXTERNO
+        - AUDITOR
+        - CIUDADANO
+
+    EntityTypeEnum:
+      type: string
+      enum: [DENUNCIA, EVIDENCIA, USUARIO, NOTIFICACION, OTRO]
+
+    HashAlgorithmEnum:
+      type: string
+      enum: [SHA-256]
+
+    IntegrityStatusEnum:
+      type: string
+      enum: [OK, INCONSISTENTE, PARCIAL]
+
+    # ---------------------------------------------------------------
+    # modelos
+    # ---------------------------------------------------------------
+    ActorRef:
+      type: object
+      properties:
+        actorType:
+          $ref: '#/components/schemas/ActorTypeEnum'
+        actorUserId:
+          type: integer
+          format: int64
+          nullable: true
+          description: Solo si actorType=USER.
+          example: 88
+        actorRole:
+          $ref: '#/components/schemas/RolEnum'
+        actorAliasPublico:
+          type: string
+          nullable: true
+          description: Alias público si aplica (evitar nombre real).
+          example: "Operador Marco"
+        actorService:
+          type: string
+          nullable: true
+          description: Solo si actorType=SERVICE (nombre lógico del servicio).
+          example: "denuncias-service"
+
+    AuditEventBase:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "ae_9c1a"
+        eventId:
+          type: string
+          description: Identificador idempotente emitido por el servicio origen.
+          example: "evt_8b9c2a1f-2f9a-4c12-9c5d-1a2b3c4d5e6f"
+        sourceService:
+          $ref: '#/components/schemas/SourceServiceEnum'
+        action:
+          type: string
+          description: Acción auditada (string controlado por el emisor, recomendado en mayúsculas con guiones bajos).
+          example: "DENUNCIA_CREADA"
+        occurredAt:
+          type: string
+          format: date-time
+          example: "2025-12-14T23:10:00Z"
+        receivedAt:
+          type: string
+          format: date-time
+          example: "2025-12-14T23:10:01Z"
+        correlationId:
+          type: string
+          nullable: true
+          example: "corr_9a1d2f7c"
+        entityType:
+          $ref: '#/components/schemas/EntityTypeEnum'
+        entityId:
+          type: string
+          example: "DENUNCIA:101"
+        actor:
+          $ref: '#/components/schemas/ActorRef'
+        metadata:
+          type: object
+          additionalProperties: true
+          description: >
+            Metadatos no sensibles. Evitar PII. Preferir IDs, estados, roles, códigos y detalles neutrales.
+          example:
+            estadoAnterior: "EN_PROCESO"
+            estadoNuevo: "EN_VALIDACION"
+            canal: "IN_APP"
+            evidenciaIds: ["ev_aa01","ev_aa02"]
+
+        # campos de integridad
+        hashAlgorithm:
+          $ref: '#/components/schemas/HashAlgorithmEnum'
+        prevHash:
+          type: string
+          nullable: true
+          description: Hash del evento inmediatamente anterior dentro de la misma partición lógica.
+          example: "8f3b...a91c"
+        hash:
+          type: string
+          description: Hash del evento actual (calculado por el servicio).
+          example: "2d7a...b03f"
+
+    AuditEventResponse:
+      allOf:
+        - $ref: '#/components/schemas/AuditEventBase'
+
+    AuditEventPageResponse:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 0
+        size:
+          type: integer
+          example: 20
+        totalItems:
+          type: integer
+          example: 1200
+        totalPages:
+          type: integer
+          example: 60
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditEventResponse'
+
+    EntityTraceResponse:
+      type: object
+      properties:
+        entityType:
+          $ref: '#/components/schemas/EntityTypeEnum'
+        entityId:
+          type: string
+          example: "DENUNCIA:101"
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditEventResponse'
+
+    CustodyChainResponse:
+      type: object
+      properties:
+        evidenceId:
+          type: string
+          example: "ev_aa01"
+        items:
+          type: array
+          description: Eventos relevantes de custodia filtrados desde el log.
+          items:
+            $ref: '#/components/schemas/AuditEventResponse'
+
+    IntegrityCheckResponse:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/IntegrityStatusEnum'
+        scannedEvents:
+          type: integer
+          example: 5000
+        from:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-12-01T00:00:00Z"
+        to:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-12-15T00:00:00Z"
+        firstInconsistentEventId:
+          type: string
+          nullable: true
+          example: "ae_88ff"
+        message:
+          type: string
+          example: "Integridad verificada correctamente."
+
+    # ---------------------------------------------------------------
+    # ingestión
+    # ---------------------------------------------------------------
+    AuditIngestRequest:
+      type: object
+      required: [eventId, sourceService, action, occurredAt, entityType, entityId, actor]
+      properties:
+        eventId:
+          type: string
+          description: Identificador idempotente emitido por el servicio origen (UUID recomendado).
+          example: "evt_8b9c2a1f-2f9a-4c12-9c5d-1a2b3c4d5e6f"
+        sourceService:
+          $ref: '#/components/schemas/SourceServiceEnum'
+        action:
+          type: string
+          example: "EVIDENCIA_CONFIRMADA"
+        occurredAt:
+          type: string
+          format: date-time
+          example: "2025-12-14T23:10:00Z"
+        correlationId:
+          type: string
+          nullable: true
+          example: "corr_9a1d2f7c"
+        entityType:
+          $ref: '#/components/schemas/EntityTypeEnum'
+        entityId:
+          type: string
+          description: Identificador canónico recomendado - "{TIPO}:{ID}" (ej. "DENUNCIA:101").
+          example: "DENUNCIA:101"
+        actor:
+          $ref: '#/components/schemas/ActorRef'
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: Metadatos no sensibles. Evitar PII.
+          example:
+            categoria: "AGUA"
+            nivelAnonimato: "SEUDONIMO"
+            evidenceIds: ["ev_9c1a","ev_9c1b"]
+
+    AuditAcceptedResponse:
+      type: object
+      properties:
+        auditId:
+          type: string
+          example: "ae_9c1a"
+        eventId:
+          type: string
+          example: "evt_8b9c2a1f-2f9a-4c12-9c5d-1a2b3c4d5e6f"
+        message:
+          type: string
+          example: "Evento aceptado para registro."
+        correlationId:
+          type: string
+          nullable: true
+          example: "corr_9a1d2f7c"
+
+security: []
