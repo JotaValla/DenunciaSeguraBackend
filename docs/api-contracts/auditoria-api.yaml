@@ -39,6 +39,7 @@ paths:
       security:
         - BearerAuth: []
       parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
         - name: page
           in: query
           schema: { type: integer, default: 0, minimum: 0 }
@@ -167,6 +168,7 @@ paths:
       security:
         - BearerAuth: []
       parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
         - name: entityType
           in: path
           required: true
@@ -221,6 +223,7 @@ paths:
       security:
         - BearerAuth: []
       parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
         - name: evidenceId
           in: path
           required: true
@@ -264,6 +267,7 @@ paths:
       security:
         - BearerAuth: []
       parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
         - name: from
           in: query
           required: false
@@ -370,6 +374,15 @@ components:
       in: header
       name: X-Internal-Service-Key
 
+  parameters:
+    XCorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Identificador de trazabilidad distribuida.
+
   schemas:
     # ---------------------------------------------------------------
     # error estándar
@@ -395,6 +408,7 @@ components:
           example: "/api/v1/auditoria/eventos"
         correlationId:
           type: string
+          description: Identificador de trazabilidad distribuida.
           example: "corr_9a1d2f7c"
 
     # ---------------------------------------------------------------

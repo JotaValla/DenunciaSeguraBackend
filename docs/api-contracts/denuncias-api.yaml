@@ -1,0 +1,474 @@
+openapi: 3.0.3
+info:
+  title: API de Denuncias (Core)
+  description: Gestión del ciclo de vida, asignación y validación de denuncias con privacidad granular.
+  version: 2.1.0 # Actualizado para reflejar mejoras
+
+servers:
+  - url: /api/v1
+    description: Gateway Base URL
+
+tags:
+  - name: Ciudadano
+    description: Creación y consulta propia.
+  - name: GestionInterna
+    description: Jefes, Operadores y Supervisores.
+
+paths:
+  # ----------------------------------------------------------------
+  # CIUDADANO: CREAR Y VER PROPIAS
+  # ----------------------------------------------------------------
+  /denuncias:
+    post:
+      tags:
+        - Ciudadano
+      summary: Crear denuncia con nivel de privacidad
+      operationId: crearDenuncia
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrearDenunciaRequest'
+      responses:
+        '201':
+          description: Creada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DenunciaResumenResponse'
+        # Agregados códigos de error
+        '400':
+          description: Datos inválidos (Faltan coordenadas, título vacío, categoría no existe)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No autorizado (Token JWT inválido o ausente)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflicto (Alguna evidencia no existe, no está confirmada o no corresponde al propósito CIUDADANO_CREACION)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+
+  /denuncias/me:
+    get:
+      tags:
+        - Ciudadano
+      summary: Mis Denuncias (Vista Ciudadano)
+      description: Retorna SOLO las denuncias del usuario. Muestra el 'alias' del operador, no el nombre real.
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - name: page
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        '200':
+          description: Lista personal
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DenunciaCitizenViewResponse'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ----------------------------------------------------------------
+  # GESTIÓN INTERNA (JEFES, OPERADORES, SUPERVISORES)
+  # ----------------------------------------------------------------
+  /denuncias/gestion:
+    get:
+      tags:
+        - GestionInterna
+      summary: Bandeja de entrada (Filtrada por Rol en Backend)
+      description: >
+        - Jefe: Ve las de su área sin asignar.
+        - Operador: Ve las asignadas a él.
+        - Supervisor: Ve todas o las pendientes de validación.
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - name: estado
+          in: query
+          schema: { $ref: '#/components/schemas/EstadoDenunciaEnum' }
+        - name: page
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        '200':
+          description: Lista para gestión
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DenunciaStaffViewResponse'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Prohibido (El usuario no tiene rol de Staff/Admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ----------------------------------------------------------------
+  # FLUJO DE TRABAJO (WORKFLOW)
+  # ----------------------------------------------------------------
+  /denuncias/{id}/asignacion:
+    post:
+      tags:
+        - GestionInterna
+      summary: Asignar operador (Solo Jefes)
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                operadorId:
+                  type: integer
+                  description: ID del usuario operador (interno o externo)
+                  example: 45
+      responses:
+        '200':
+          description: Asignada correctamente
+        '403':
+          description: Prohibido (Solo Jefes pueden asignar)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Denuncia no encontrada o Operador no existe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /denuncias/{id}/resolucion:
+    patch:
+      tags:
+        - GestionInterna
+      summary: Marcar como resuelta (Solo Operadores)
+      description: Pasa el estado a 'EN_VALIDACION' (no visible aún como resuelta para el ciudadano).
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comentarioTecnico:
+                  type: string
+                  example: "Fuga reparada, se reemplazó la tubería."
+                evidenciaIds:
+                  type: array
+                  description: >
+                    Evidencias de resolución subidas y confirmadas previamente en el microservicio de evidencias
+                    (propósito OPERADOR_RESOLUCION).
+                  items:
+                    $ref: '#/components/schemas/EvidenceId'
+                  example: [ "ev_aa01","ev_aa02" ]
+      responses:
+        '200':
+          description: Enviada a supervisión
+        '400':
+          description: "Faltan datos (Ejemplo: comentario técnico obligatorio)"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Prohibido (No eres el operador asignado a esta denuncia)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Denuncia no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflicto (Alguna evidencia no existe, no está confirmada o no corresponde al propósito OPERADOR_RESOLUCION)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /denuncias/{id}/validacion:
+    patch:
+      tags:
+        - GestionInterna
+      summary: Aprobar o Rechazar solución (Solo Supervisor)
+      description: Si aprueba -> Estado final RESUELTA (Ciudadano ve). Si rechaza -> Vuelve a EN_PROCESO.
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ aprobada ]
+              properties:
+                aprobada:
+                  type: boolean
+                  example: true
+                feedbackSupervisor:
+                  type: string
+                  description: Razón del rechazo o nota de cierre.
+                  example: "Solución verificada correctamente."
+      responses:
+        '200':
+          description: Flujo actualizado
+        '403':
+          description: Prohibido (Solo Supervisores)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Denuncia no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    XCorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Identificador de trazabilidad distribuida.
+
+  schemas:
+    EvidenceId:
+      type: string
+      description: ID de evidencia emitido por el microservicio de evidencias (ej. ev_9c1a).
+      example: "ev_9c1a"
+
+    ErrorResponse:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-11-24T10:00:00Z"
+        status:
+          type: integer
+          example: 404
+        error:
+          type: string
+          example: "Not Found"
+        message:
+          type: string
+          example: "La denuncia con ID 123 no existe en el sistema."
+        path:
+          type: string
+          example: "/api/v1/denuncias/123/asignacion"
+        correlationId:
+          type: string
+          description: Identificador de trazabilidad distribuida (gateway/microservicios).
+          example: "corr_9a1d2f7c"
+
+    # --- ENUMS ---
+    NivelAnonimatoEnum:
+      type: string
+      enum: [REAL, SEUDONIMO, ANONIMO]
+      description: Nivel de privacidad elegido por el ciudadano.
+
+    EstadoDenunciaEnum:
+      type: string
+      enum: [RECIBIDA, ASIGNADA, EN_PROCESO, EN_VALIDACION, RESUELTA, RECHAZADA]
+      description: >
+        - RECIBIDA: Recién creada.
+        - ASIGNADA: Jefe asignó a Operador.
+        - EN_PROCESO: Operador aceptó y trabaja.
+        - EN_VALIDACION: Operador terminó, Supervisor revisa.
+        - RESUELTA: Supervisor aprobó.
+
+    CategoriaEnum:
+      type: string
+      enum: [VIALIDAD, AGUA, ILUMINACION, SEGURIDAD, SANIDAD, JARDINERIA, OTROS]
+
+    # --- REQUESTS ---
+
+    CrearDenunciaRequest:
+      type: object
+      required: [ titulo, categoria, latitud, longitud, nivelAnonimato ]
+      properties:
+        titulo:
+          type: string
+          example: "Fuga de agua en la calle 5"
+        descripcion:
+          type: string
+          example: "Hay una fuga de agua potable frente al número 123."
+        categoria:
+          $ref: '#/components/schemas/CategoriaEnum'
+        latitud:
+          type: number
+          example: -34.6037
+          format: double
+        longitud:
+          type: number
+          example: -58.3816
+          format: double
+
+        evidenciaIds:
+          type: array
+          description: >
+            Evidencias del ciudadano subidas y confirmadas previamente en el microservicio de evidencias
+            (propósito CIUDADANO_CREACION). Denuncias solo recibe IDs, no URLs públicas.
+          items:
+            $ref: '#/components/schemas/EvidenceId'
+          example: [ "ev_9c1a","ev_9c1b" ]
+
+        nivelAnonimato:
+          $ref: '#/components/schemas/NivelAnonimatoEnum'
+
+    # --- RESPONSES ---
+
+    # Vista para el CIUDADANO
+    DenunciaCitizenViewResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 101
+        titulo:
+          type: string
+          example: "Fuga de agua en la calle 5"
+        descripcion:
+          type: string
+          example: "Hay una fuga de agua potable..."
+        estado:
+          $ref: '#/components/schemas/EstadoDenunciaEnum'
+        # Ejemplo claro de anonimato del operador
+        asignadoA:
+          type: string
+          description: "Ej: 'Operador Marco' o 'Cuadrilla Eléctrica Norte'"
+          example: "Operador Marco"
+
+        evidenciaIds:
+          type: array
+          description: Evidencias aportadas por el ciudadano (visualizables por URL firmada desde el servicio de evidencias).
+          items:
+            $ref: '#/components/schemas/EvidenceId'
+          example: [ "ev_9c1a","ev_9c1b" ]
+        comentarioResolucion:
+          type: string
+          example: "Fuga reparada. Se reemplazó la tubería dañada."
+          description: Mensaje validado por el supervisor.
+
+        evidenciaResolucionIds:
+          type: array
+          description: Evidencias de resolución (solo visibles cuando el supervisor aprueba/expone al ciudadano).
+          items:
+            $ref: '#/components/schemas/EvidenceId'
+          example: [ "ev_aa01","ev_aa02" ]
+
+    # Vista para el STAFF (Jefes, Supervisores, Auditores)
+    DenunciaStaffViewResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 101
+        # Datos del Ciudadano (Según nivel anonimato)
+        ciudadanoId:
+          type: integer
+          example: 505
+        datosCiudadano:
+          type: string
+          example: "Juan Pérez"  # Si anonimato=REAL
+          description: "Si es ANÓNIMO viene null. Si es SEUDÓNIMO viene alias."
+        titulo:
+          type: string
+          example: "Fuga de agua en la calle 5"
+        estado:
+          $ref: '#/components/schemas/EstadoDenunciaEnum'
+        # Datos Reales del Operador
+        operadorId:
+          type: integer
+          example: 88
+
+        evidenciaIds:
+          type: array
+          description: Evidencias del ciudadano asociadas a la denuncia (acceso controlado por roles/permisos).
+          items:
+            $ref: '#/components/schemas/EvidenceId'
+          example: [ "ev_9c1a","ev_9c1b" ]
+
+        comentarioTecnico:
+          type: string
+          example: "Tubería reemplazada y fuga sellada."
+
+        evidenciaResolucionIds:
+          type: array
+          description: Evidencias aportadas por el operador para sustentar la resolución.
+          items:
+            $ref: '#/components/schemas/EvidenceId'
+          example: [ "ev_aa01","ev_aa02" ]
+
+        feedbackSupervisor:
+          type: string
+          example: "Buen trabajo, proceder a cerrar el caso."
+
+    DenunciaResumenResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 101
+        mensaje:
+          type: string
+          example: "Denuncia creada. Tu privacidad está protegida."
+
+security:
+  - BearerAuth: []

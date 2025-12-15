@@ -1,40 +1,106 @@
 openapi: 3.0.3
 info:
-  title: Microservicio de evidencias
+  title: Microservicio de Notificaciones
   description: >
-    Servicio dedicado a la gestión segura de evidencias (imágenes/archivos) asociadas a denuncias.
-    Su propósito es:
-    - Generar URLs firmadas de subida (pre-carga) para que el frontend suba directamente al storage.
-    - Confirmar y validar la carga (tipo, tamaño, hash opcional) y normalizar metadatos 
-    - Proveer URLs firmadas de descarga/preview con control estricto de acceso.
-    - Permitir que microservicios internos (Denuncias/Auth) adjunten evidencias a entidades de negocio sin acoplarse al proveedor de almacenamiento.
+    Gestión centralizada de alertas (In-App, Correo, Push).
+    Maneja el historial de mensajes para el usuario y provee endpoints internos
+    para que otros microservicios (Auth, Denuncias) disparen eventos.
   version: 1.0.0
 
 servers:
-  - url: /api/v1/evidencias
-    description: Gateway evidencias path
+  - url: /api/v1/notificaciones
+    description: Gateway Notifications Path
 
 tags:
-  - name: Uploads
-    description: Flujo de pre-carga y confirmación de archivos.
-  - name: Evidencias
-    description: Consulta segura y obtención de URLs firmadas.
+  - name: Buzon
+    description: Endpoints para el usuario final (Ciudadano/Staff).
   - name: Interno
-    description: Endpoints S2S (Service-to-Service) para adjuntar evidencias a denuncias y gestionar permisos.
+    description: Endpoints S2S (Service-to-Service) restringidos. Solo otros microservicios pueden llamarlos.
 
 paths:
   # ----------------------------------------------------------------
-  # PRE-CARGA (FRONTEND) + CONFIRMACIÓN
+  # BUZÓN DE USUARIO (HISTORIAL)
   # ----------------------------------------------------------------
-  /uploads:
-    post:
-      tags: [Uploads]
-      summary: Crear sesión de pre-carga
-      description: >
-        Crea una sesión de subida y devuelve URLs firmadas para subir directamente al storage.
-        El archivo se sube fuera del servicio (por URL firmada). Luego el cliente confirma la carga.
+  /me:
+    get:
+      tags:
+        - Buzon
+      summary: Obtener mis notificaciones
+      description: Retorna el historial de alertas del usuario autenticado, ordenadas por fecha (más reciente primero).
       security:
         - BearerAuth: []
+      parameters:
+        - name: X-Correlation-Id
+          in: header
+          required: false
+          schema: { type: string }
+          description: Identificador de trazabilidad distribuida (propagado desde gateway).
+        - name: page
+          in: query
+          schema: { type: integer, default: 0 }
+        - name: soloNoLeidas
+          in: query
+          description: Si es true, filtra solo las que no se han abierto.
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: Historial de notificaciones
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NotificacionResponse'
+                  noLeidasCount:
+                    type: integer
+                    description: Contador total de mensajes sin leer (para el numerito rojo en la campana).
+                    example: 3
+        '401':
+          description: No autorizado
+
+  /me/{id}/leida:
+    patch:
+      tags:
+        - Buzon
+      summary: Marcar como leída
+      operationId: marcarLeida
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - name: X-Correlation-Id
+          in: header
+          required: false
+          schema: { type: string }
+          description: Identificador de trazabilidad distribuida (propagado desde gateway).
+      responses:
+        '204':
+          description: Estado actualizado correctamente (Sin contenido)
+        '404':
+          description: Notificación no encontrada o no pertenece al usuario
+
+  # ----------------------------------------------------------------
+  # ENDPOINTS INTERNOS (INTEGRACIÓN)
+  # ----------------------------------------------------------------
+  /interno/disparar:
+    post:
+      tags:
+        - Interno
+      summary: Enviar nueva notificación (Uso interno)
+      description: >
+        Este endpoint es llamado por 'Denuncia Service' o 'Auth Service' cuando ocurre un evento.
+        El servicio de notificaciones se encarga de:
+        1. Guardar en BD (Historial).
+        2. Enviar por WebSocket (Tiempo real).
+        3. Enviar correo electrónico (Async).
+      security:
+        - ApiKeyAuth: [] # Seguridad entre servidores (puede ser mTLS o API Key interna)
       parameters:
         - name: X-Correlation-Id
           in: header
@@ -46,301 +112,12 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CrearUploadRequest'
+              $ref: '#/components/schemas/CrearNotificacionInternaRequest'
       responses:
-        '201':
-          description: Sesión creada con URLs firmadas
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CrearUploadResponse'
+        '202':
+          description: Aceptada para procesamiento (Async)
         '400':
-          description: Solicitud inválida (tipo no permitido, tamaño excedido, lista vacía)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: No autorizado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '413':
-          description: Archivo demasiado grande (política del servicio)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '415':
-          description: Tipo de archivo no soportado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '429':
-          description: Demasiadas solicitudes
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /uploads/{uploadId}/confirmar:
-    post:
-      tags: [Uploads]
-      summary: Confirmar carga de archivos
-      description: >
-        Confirma que el/los archivos fueron subidos exitosamente al storage.
-        El servicio valida metadatos, aplica normalización (p. ej. eliminación EXIF) y cambia el estado a DISPONIBLE.
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: uploadId
-          in: path
-          required: true
-          schema: { type: string }
-        - name: X-Correlation-Id
-          in: header
-          required: false
-          schema: { type: string }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ConfirmarUploadRequest'
-      responses:
-        '200':
-          description: Evidencias confirmadas
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ConfirmarUploadResponse'
-        '400':
-          description: Confirmación inválida (faltan ids, formato incorrecto)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: No autorizado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Sesión no encontrada o no pertenece al usuario
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflicto (archivo no encontrado en storage, hash no coincide, ya confirmado)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  # ----------------------------------------------------------------
-  # CONSULTA SEGURA + URLS FIRMADAS (USUARIO FINAL)
-  # ----------------------------------------------------------------
-  /evidencias/{id}:
-    get:
-      tags: [Evidencias]
-      summary: Obtener metadatos de evidencia
-      description: >
-        Retorna metadatos no sensibles de la evidencia, sujeto a control de acceso.
-        No retorna URL directa; para acceso al archivo se usa el endpoint de URL firmada.
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema: { type: string }
-        - name: X-Correlation-Id
-          in: header
-          required: false
-          schema: { type: string }
-      responses:
-        '200':
-          description: Metadatos de evidencia
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EvidenciaMetadataResponse'
-        '401':
-          description: No autorizado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Prohibido (no tiene permisos de acceso)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Evidencia no encontrada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /evidencias/{id}/url-firmada:
-    get:
-      tags: [Evidencias]
-      summary: Obtener URL firmada de descarga o preview
-      description: >
-        Retorna una URL firmada (expirable) para descargar o visualizar la evidencia.
-        El servicio valida permisos antes de emitir la URL.
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema: { type: string }
-        - name: modo
-          in: query
-          required: false
-          schema: { $ref: '#/components/schemas/ModoUrlEnum' }
-        - name: X-Correlation-Id
-          in: header
-          required: false
-          schema: { type: string }
-      responses:
-        '200':
-          description: URL firmada emitida
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UrlFirmadaResponse'
-        '401':
-          description: No autorizado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Prohibido (no tiene permisos)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Evidencia no encontrada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  # ----------------------------------------------------------------
-  # INTEGRACIÓN S2S (DENUNCIAS/AUTH) PARA ADJUNTAR Y CONTROLAR PERMISOS
-  # ----------------------------------------------------------------
-  /interno/adjuntar:
-    post:
-      tags: [Interno]
-      summary: Adjuntar evidencias a una entidad de negocio
-      description: >
-        Endpoint S2S: permite a otros microservicios (principalmente Denuncias) adjuntar evidencias a una entidad
-        (por ejemplo, una denuncia). Puede establecer permisos explícitos por rol/usuarios.
-        Este endpoint evita que Denuncias deba conocer el storage.
-      security:
-        - ApiKeyAuth: []
-      parameters:
-        - name: X-Correlation-Id
-          in: header
-          required: false
-          schema: { type: string }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AdjuntarEvidenciasRequest'
-      responses:
-        '200':
-          description: Evidencias adjuntadas y permisos aplicados
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AdjuntarEvidenciasResponse'
-        '400':
-          description: Solicitud inválida
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: No autorizado (credencial interna inválida o ausente)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Prohibido (microservicio no permitido)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Alguna evidencia no existe o no está confirmada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Conflicto (evidencia ya adjunta a otra entidad incompatible, o propósito no coincide)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /interno/entidades/{tipo}/{entidadId}/evidencias:
-    get:
-      tags: [Interno]
-      summary: Listar evidencias de una entidad (S2S)
-      description: >
-        Endpoint S2S para consultar evidencias adjuntas a una entidad de negocio (ej. una denuncia),
-        usado por Denuncias para componer respuestas (sin exponer URLs públicas).
-      security:
-        - ApiKeyAuth: []
-      parameters:
-        - name: tipo
-          in: path
-          required: true
-          schema: { $ref: '#/components/schemas/EntidadTipoEnum' }
-        - name: entidadId
-          in: path
-          required: true
-          schema: { type: integer, format: int64 }
-        - name: X-Correlation-Id
-          in: header
-          required: false
-          schema: { type: string }
-      responses:
-        '200':
-          description: Lista de evidencias
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/EvidenciaInternaResponse'
-        '401':
-          description: No autorizado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Prohibido
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+          description: Datos de evento inválidos
 
 components:
   securitySchemes:
@@ -351,371 +128,72 @@ components:
     ApiKeyAuth:
       type: apiKey
       in: header
-      name: X-Internal-Service-Key
+      name: X-Internal-Service-Key # Clave secreta compartida entre microservicios
 
   schemas:
-    # ---------------------------------------------------------------
-    # errores y trazabilidad
-    # ---------------------------------------------------------------
-    ErrorResponse:
-      type: object
-      properties:
-        timestamp:
-          type: string
-          format: date-time
-          example: "2025-12-14T23:45:00Z"
-        status:
-          type: integer
-          example: 403
-        error:
-          type: string
-          example: "Forbidden"
-        message:
-          type: string
-          example: "No tiene permisos para acceder a esta evidencia."
-        path:
-          type: string
-          example: "/api/v1/evidencias/evidencias/ev_123/url-firmada"
-        correlationId:
-          type: string
-          example: "corr_9a1d2f7c"
-
-    # ---------------------------------------------------------------
-    # enums
-    # ---------------------------------------------------------------
-    PropositoEvidenciaEnum:
+    # --- ENUMS ---
+    TipoEventoEnum:
       type: string
       enum:
-        - CIUDADANO_CREACION
-        - OPERADOR_RESOLUCION
-      description: >
-        Indica el uso previsto:
-        - CIUDADANO_CREACION: evidencia adjunta al registrar una denuncia.
-        - OPERADOR_RESOLUCION: evidencia adjunta por un operador en la resolución.
+        - DENUNCIA_CREADA       # Para Admins/Jefes
+        - DENUNCIA_ASIGNADA     # Para Operador
+        - DENUNCIA_RESUELTA     # Para Ciudadano (Final feliz)
+        - DENUNCIA_RECHAZADA    # Para Ciudadano (Malas noticias)
+        - VALIDACION_REQUERIDA  # Para Supervisor
+        - BIENVENIDA_USUARIO    # Para Ciudadano nuevo
 
-    EstadoEvidenciaEnum:
+    PrioridadEnum:
       type: string
-      enum: [PENDIENTE_SUBIDA, SUBIDA, DISPONIBLE, BLOQUEADA]
-      description: >
-        - PENDIENTE_SUBIDA: creada la sesión, aún no se sube.
-        - SUBIDA: storage reporta subida, falta confirmación o post-proceso.
-        - DISPONIBLE: validada y lista para uso (URLs firmadas).
-        - BLOQUEADA: bloqueada por política (p. ej. malware, tipo no permitido).
+      enum: [ALTA, MEDIA, BAJA]
 
-    ModoUrlEnum:
-      type: string
-      enum: [DESCARGA, PREVIEW]
-
-    EntidadTipoEnum:
-      type: string
-      enum: [DENUNCIA]
-
-    RolEnum:
-      type: string
-      enum:
-        - ADMIN_PLATAFORMA
-        - SUPERVISOR_DENUNCIAS
-        - JEFE_INTERNO
-        - JEFE_EXTERNO
-        - OPERADOR_INTERNO
-        - OPERADOR_EXTERNO
-        - AUDITOR
-        - CIUDADANO
-
-    # ---------------------------------------------------------------
-    # requests
-    # ---------------------------------------------------------------
-    CrearUploadRequest:
+    # --- REQUESTS (INTERNO) ---
+    CrearNotificacionInternaRequest:
       type: object
-      required: [proposito, archivos]
+      required: [ usuarioDestinoId, tipoEvento, titulo, mensaje ]
       properties:
-        proposito:
-          $ref: '#/components/schemas/PropositoEvidenciaEnum'
-        archivos:
-          type: array
-          minItems: 1
-          items:
-            $ref: '#/components/schemas/ArchivoPreCargaRequest'
-        restricciones:
-          $ref: '#/components/schemas/RestriccionesUploadRequest'
-      description: >
-        Solicita una o varias URLs firmadas para subir archivos.
-        Se recomienda solicitar todas las imágenes en una sola sesión.
-
-    ArchivoPreCargaRequest:
-      type: object
-      required: [nombreArchivo, contentType, sizeBytes]
-      properties:
-        nombreArchivo:
-          type: string
-          example: "fuga_agua_1.jpg"
-        contentType:
-          type: string
-          example: "image/jpeg"
-        sizeBytes:
+        usuarioDestinoId:
           type: integer
           format: int64
-          example: 345678
-        sha256:
-          type: string
-          nullable: true
-          description: Hash opcional para validación de integridad (hex).
-          example: "b1946ac92492d2347c6235b4d2611184..."
-      description: Metadatos declarados por el cliente para validar políticas.
-
-    RestriccionesUploadRequest:
-      type: object
-      properties:
-        maxSizeBytes:
-          type: integer
-          format: int64
-          nullable: true
-          example: 5242880
-        tiposPermitidos:
-          type: array
-          items:
-            type: string
-          nullable: true
-          example: ["image/jpeg", "image/png"]
-      description: >
-        Opcional. Permite al cliente conocer límites; la política real se aplica en el backend.
-
-    ConfirmarUploadRequest:
-      type: object
-      required: [evidenceIds]
-      properties:
-        evidenceIds:
-          type: array
-          minItems: 1
-          items:
-            type: string
-          example: ["ev_9c1a", "ev_9c1b"]
-        comprobantes:
-          type: array
-          nullable: true
-          items:
-            $ref: '#/components/schemas/ComprobanteUpload'
-      description: >
-        Confirma evidencias subidas. El backend verifica existencia en storage y aplica validaciones.
-
-    ComprobanteUpload:
-      type: object
-      properties:
-        evidenceId:
-          type: string
-          example: "ev_9c1a"
-        etag:
-          type: string
-          nullable: true
-          example: "\"686897696a7c876b7e\""
-        sizeBytes:
-          type: integer
-          format: int64
-          nullable: true
-          example: 345678
-
-    AdjuntarEvidenciasRequest:
-      type: object
-      required: [tipoEntidad, entidadId, evidenceIds]
-      properties:
-        tipoEntidad:
-          $ref: '#/components/schemas/EntidadTipoEnum'
+          description: ID del usuario que recibirá la alerta (extraído de Auth).
+        tipoEvento:
+          $ref: '#/components/schemas/TipoEventoEnum'
         entidadId:
           type: integer
           format: int64
-          example: 101
-        evidenceIds:
+          description: ID de la entidad relacionada - ej ID de la Denuncia). Sirve para hacer link.
+        titulo:
+          type: string
+          example: "Tu denuncia ha sido resuelta"
+        mensaje:
+          type: string
+          example: "El operador ha reparado el bache en la Av. Patria."
+        canales:
           type: array
-          minItems: 1
           items:
             type: string
-          example: ["ev_9c1a", "ev_9c1b"]
-        permisos:
-          $ref: '#/components/schemas/PermisosEvidenciaRequest'
-      description: >
-        Adjunta evidencias a una entidad de negocio y define permisos.
-        En denuncias, esta operación suele ejecutarse al crear o actualizar la denuncia.
+            enum: [IN_APP, EMAIL, PUSH]
+          default: [IN_APP]
+          description: Por qué medios se debe intentar contactar.
 
-    PermisosEvidenciaRequest:
-      type: object
-      properties:
-        allowedRoles:
-          type: array
-          items:
-            $ref: '#/components/schemas/RolEnum'
-          nullable: true
-          description: Roles habilitados para obtener URL firmada.
-          example: ["SUPERVISOR_DENUNCIAS", "AUDITOR"]
-        allowedUserIds:
-          type: array
-          items:
-            type: integer
-            format: int64
-          nullable: true
-          description: Usuarios específicos habilitados (por ejemplo operador asignado).
-          example: [88]
-        ownerUserId:
-          type: integer
-          format: int64
-          nullable: true
-          description: >
-            Usuario propietario lógico de la evidencia (ciudadano u operador).
-            Si se omite, se conserva el propietario original de la subida.
-          example: 505
-
-    # ---------------------------------------------------------------
-    # responses
-    # ---------------------------------------------------------------
-    CrearUploadResponse:
-      type: object
-      properties:
-        uploadId:
-          type: string
-          example: "up_7f3a2c9b1e"
-        expiresAt:
-          type: string
-          format: date-time
-          example: "2025-12-15T00:10:00Z"
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/UploadItemResponse'
-        correlationId:
-          type: string
-          nullable: true
-          example: "corr_9a1d2f7c"
-
-    UploadItemResponse:
-      type: object
-      properties:
-        evidenceId:
-          type: string
-          example: "ev_9c1a"
-        uploadUrl:
-          type: string
-          format: uri
-          example: "https://storage.example.com/upload/signed-url"
-        method:
-          type: string
-          example: "PUT"
-        requiredHeaders:
-          type: object
-          additionalProperties:
-            type: string
-          nullable: true
-          example:
-            Content-Type: "image/jpeg"
-        estado:
-          $ref: '#/components/schemas/EstadoEvidenciaEnum'
-      description: >
-        El cliente sube el archivo usando uploadUrl (y headers requeridos) y luego confirma.
-
-    ConfirmarUploadResponse:
-      type: object
-      properties:
-        evidencias:
-          type: array
-          items:
-            $ref: '#/components/schemas/EvidenciaMetadataResponse'
-        correlationId:
-          type: string
-          nullable: true
-          example: "corr_9a1d2f7c"
-
-    EvidenciaMetadataResponse:
+    # --- RESPONSES ---
+    NotificacionResponse:
       type: object
       properties:
         id:
-          type: string
-          example: "ev_9c1a"
-        proposito:
-          $ref: '#/components/schemas/PropositoEvidenciaEnum'
-        estado:
-          $ref: '#/components/schemas/EstadoEvidenciaEnum'
-        contentType:
-          type: string
-          example: "image/jpeg"
-        sizeBytes:
           type: integer
           format: int64
-          example: 345678
-        sha256:
+        tipoEvento:
+          $ref: '#/components/schemas/TipoEventoEnum'
+        titulo:
           type: string
-          nullable: true
-          description: Hash calculado por el servicio (si aplica).
-          example: "b1946ac92492d2347c6235b4d2611184..."
-        createdAt:
+        mensaje:
+          type: string
+        leida:
+          type: boolean
+          example: false
+        fechaCreacion:
           type: string
           format: date-time
-          example: "2025-12-14T23:10:00Z"
-        entidadTipo:
-          $ref: '#/components/schemas/EntidadTipoEnum'
         entidadId:
           type: integer
-          format: int64
-          nullable: true
-          example: 101
-
-    UrlFirmadaResponse:
-      type: object
-      properties:
-        url:
-          type: string
-          format: uri
-          example: "https://storage.example.com/download/signed-url"
-        expiresAt:
-          type: string
-          format: date-time
-          example: "2025-12-15T00:00:30Z"
-        modo:
-          $ref: '#/components/schemas/ModoUrlEnum'
-        correlationId:
-          type: string
-          nullable: true
-          example: "corr_9a1d2f7c"
-
-    AdjuntarEvidenciasResponse:
-      type: object
-      properties:
-        tipoEntidad:
-          $ref: '#/components/schemas/EntidadTipoEnum'
-        entidadId:
-          type: integer
-          format: int64
-          example: 101
-        evidenciasAdjuntas:
-          type: array
-          items:
-            type: string
-          example: ["ev_9c1a", "ev_9c1b"]
-        correlationId:
-          type: string
-          nullable: true
-          example: "corr_9a1d2f7c"
-
-    EvidenciaInternaResponse:
-      type: object
-      properties:
-        id:
-          type: string
-          example: "ev_9c1a"
-        proposito:
-          $ref: '#/components/schemas/PropositoEvidenciaEnum'
-        estado:
-          $ref: '#/components/schemas/EstadoEvidenciaEnum'
-        contentType:
-          type: string
-          example: "image/jpeg"
-        sizeBytes:
-          type: integer
-          format: int64
-          example: 345678
-        createdAt:
-          type: string
-          format: date-time
-        entidadTipo:
-          $ref: '#/components/schemas/EntidadTipoEnum'
-        entidadId:
-          type: integer
-          format: int64
-          example: 101
+          description: ID para redirigir al usuario al detalle - ej ID denuncia.

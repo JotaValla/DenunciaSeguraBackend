@@ -353,6 +353,15 @@ components:
       in: header
       name: X-Internal-Service-Key
 
+  parameters:
+    XCorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Identificador de trazabilidad distribuida.
+
   schemas:
     # ---------------------------------------------------------------
     # errores y trazabilidad

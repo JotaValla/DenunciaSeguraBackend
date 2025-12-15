@@ -1,634 +1,662 @@
-openapi: 3.0.3
-info:
-  title: API de Identidad (Auth Service)
-  description: >
-    Gestión de usuarios, autenticación (JWT) y roles para DenunciaSeguraEC.
-    Principio de privacidad: la PII del ciudadano (nombre, cédula, email) no se expone a roles operativos.
-    Los microservicios consumidores deben usar endpoints de perfil público/minimizado para evitar propagación de identidad.
-  version: 1.0.0
+  openapi: 3.0.3
+  info:
+    title: API de Identidad (Auth Service)
+    description: >
+      Gestión de usuarios, autenticación (JWT) y roles para DenunciaSeguraEC.
+      Principio de privacidad: la PII del ciudadano (nombre, cédula, email) no se expone a roles operativos.
+      Los microservicios consumidores deben usar endpoints de perfil público/minimizado para evitar propagación de identidad.
+    version: 1.0.0
 
-servers:
-  - url: /api/v1/auth
-    description: Gateway Auth Path
+  servers:
+    - url: /api/v1/auth
+      description: Gateway Auth Path
 
-tags:
-  - name: Publico
-    description: Accesible sin token.
-  - name: Cuenta
-    description: Gestión de la propia cuenta.
-  - name: Admin
-    description: Gestión de usuarios del sistema (Staff).
+  tags:
+    - name: Publico
+      description: Accesible sin token.
+    - name: Cuenta
+      description: Gestión de la propia cuenta.
+    - name: Admin
+      description: Gestión de usuarios del sistema (Staff).
 
-paths:
-  # ----------------------------------------------------------------
-  # AUTENTICACIÓN PÚBLICA
-  # ----------------------------------------------------------------
-  /login:
-    post:
-      tags:
-        - Publico
-      summary: Iniciar sesión
-      description: >
-        Recibe credenciales y devuelve Access Token + Refresh Token.
-        Controles defensivos: rate limiting y bloqueo temporal ante intentos fallidos.
-      operationId: login
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LoginRequest'
-      responses:
-        '200':
-          description: Login exitoso
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '401':
-          description: Credenciales inválidas
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '423':
-          description: Cuenta temporalmente bloqueada por múltiples intentos fallidos
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '429':
-          description: Demasiadas solicitudes (rate limit / anti-bruteforce)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /token/refresh:
-    post:
-      tags:
-        - Publico
-      summary: Renovar tokens (refresh)
-      description: >
-        Canjea un refresh token por un nuevo access token y un nuevo refresh token (rotación).
-        Si el refresh token está revocado, expirado o no corresponde al estado de rotación, se rechaza.
-      operationId: refreshToken
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RefreshTokenRequest'
-      responses:
-        '200':
-          description: Tokens renovados
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '401':
-          description: Refresh token inválido, expirado o revocado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '429':
-          description: Demasiadas solicitudes
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /register/citizen:
-    post:
-      tags:
-        - Publico
-      summary: Registro de Ciudadano (Auto-servicio)
-      description: >
-        Crea una cuenta con rol CIUDADANO por defecto.
-        Nota de privacidad: nombre y cédula se tratan como datos sensibles y no se exponen a roles operativos.
-      operationId: registerCitizen
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RegistroCiudadanoRequest'
-      responses:
-        '201':
-          description: Usuario creado exitosamente
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RegistroUsuarioResponse'
-        '409':
-          description: Email o Cédula ya registrados
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '429':
-          description: Demasiadas solicitudes
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  # ----------------------------------------------------------------
-  # RECUPERACIÓN DE CONTRASEÑA (Tu flujo MVP)
-  # ----------------------------------------------------------------
-  /password/forgot:
-    post:
-      tags:
-        - Publico
-      summary: Solicitar recuperación
-      description: >
-        Genera token y envía correo (o log en MVP).
-        Para evitar enumeración de cuentas, la respuesta es uniforme: se devuelve 200 aunque el email no exista.
-      operationId: forgotPassword
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [ email ]
-              properties:
-                email: { type: string, format: email }
-      responses:
-        '200':
-          description: Solicitud procesada (respuesta uniforme)
-        '429':
-          description: Demasiadas solicitudes
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /password/reset:
-    post:
-      tags:
-        - Publico
-      summary: Establecer nueva contraseña
-      description: Usa el token recibido por correo.
-      operationId: resetPassword
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PasswordResetRequest'
-      responses:
-        '200':
-          description: Contraseña cambiada correctamente
-        '400':
-          description: Token inválido o expirado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '429':
-          description: Demasiadas solicitudes
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  # ----------------------------------------------------------------
-  # GESTIÓN DE CUENTA (REQUIERE TOKEN)
-  # ----------------------------------------------------------------
-  /me:
-    get:
-      tags:
-        - Cuenta
-      summary: Obtener perfil actual
-      description: >
-        Permite al frontend saber quién está logueado y qué rol tiene.
-        Para consumo interno entre microservicios, usar endpoints de perfil público/minimizado.
-      operationId: getMe
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: Datos del usuario
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UsuarioPerfilResponse'
-        '401':
-          description: No autorizado (token inválido o ausente)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /me/alias:
-    patch:
-      tags:
-        - Cuenta
-      summary: Actualizar alias público
-      description: >
-        Permite a roles de staff establecer o actualizar el alias público que verán los ciudadanos.
-        Reglas: no debe contener email, cédula ni nombres reales; el backend valida y puede rechazar.
-        Si el rol es CIUDADANO, este endpoint se rechaza.
-      operationId: updateMyAlias
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ActualizarAliasRequest'
-      responses:
-        '200':
-          description: Alias actualizado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AliasResponse'
-        '400':
-          description: Alias inválido (no cumple reglas de seguridad o formato)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: No autorizado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Prohibido (rol no permitido para gestionar alias público)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '429':
-          description: Demasiadas solicitudes
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /logout:
-    post:
-      tags:
-        - Cuenta
-      summary: Cerrar sesión actual
-      description: >
-        Invalida el refresh token entregado (revocación) para impedir futuras renovaciones.
-        Si se usa un modelo estrictamente stateless sin revocación, el cliente solo elimina tokens localmente.
-      operationId: logout
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LogoutRequest'
-      responses:
-        '204':
-          description: Sesión cerrada
-        '401':
-          description: No autorizado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  # ----------------------------------------------------------------
-  # ADMINISTRACIÓN DE STAFF (SOLO ADMIN)
-  # ----------------------------------------------------------------
-  /staff:
-    post:
-      tags:
-        - Admin
-      summary: Registrar funcionario (Operador, Jefe, Supervisor)
-      description: >
-        Endpoint exclusivo para el 'Administrador de la plataforma'.
-        Permite crear usuarios con roles elevados y asignarles su entidad (ej: Empresa Eléctrica).
-      operationId: registerStaff
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RegistroStaffRequest'
-      responses:
-        '201':
-          description: Funcionario creado. Se le enviará correo para setear password.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RegistroUsuarioResponse'
-        '401':
-          description: No autorizado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: No tienes permisos de Administrador
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Email ya registrado o conflicto de creación
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '429':
-          description: Demasiadas solicitudes
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /users/{id}/public:
-    get:
-      tags:
-        - Admin
-      summary: Obtener perfil público/minimizado de usuario
-      description: >
-        Perfil minimizado para consumo interno entre microservicios.
-        Diseñado para evitar propagación de PII: no incluye nombre real, email ni cédula.
-        Para staff devuelve rol, entidad y alias público; para ciudadanos devuelve identificador público pseudónimo.
-      operationId: getUserPublicProfile
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
+  paths:
+    # ----------------------------------------------------------------
+    # AUTENTICACIÓN PÚBLICA
+    # ----------------------------------------------------------------
+    /login:
+      post:
+        tags:
+          - Publico
+        summary: Iniciar sesión
+        description: >
+          Recibe credenciales y devuelve Access Token + Refresh Token.
+          Controles defensivos: rate limiting y bloqueo temporal ante intentos fallidos.
+        operationId: login
+        parameters:
+          - $ref: '#/components/parameters/XCorrelationId'
+        requestBody:
           required: true
-          schema: { type: integer, format: int64 }
-      responses:
-        '200':
-          description: Perfil público/minimizado
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UsuarioPublicoResponse'
-        '401':
-          description: No autorizado
+                $ref: '#/components/schemas/LoginRequest'
+        responses:
+          '200':
+            description: Login exitoso
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/AuthResponse'
+          '401':
+            description: Credenciales inválidas
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+          '423':
+            description: Cuenta temporalmente bloqueada por múltiples intentos fallidos
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+          '429':
+            description: Demasiadas solicitudes (rate limit / anti-bruteforce)
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+
+    /token/refresh:
+      post:
+        tags:
+          - Publico
+        summary: Renovar tokens (refresh)
+        description: >
+          Canjea un refresh token por un nuevo access token y un nuevo refresh token (rotación).
+          Si el refresh token está revocado, expirado o no corresponde al estado de rotación, se rechaza.
+        operationId: refreshToken
+        parameters:
+          - $ref: '#/components/parameters/XCorrelationId'
+        requestBody:
+          required: true
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Prohibido (solo ADMIN_PLATAFORMA o roles habilitados)
+                $ref: '#/components/schemas/RefreshTokenRequest'
+        responses:
+          '200':
+            description: Tokens renovados
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/AuthResponse'
+          '401':
+            description: Refresh token inválido, expirado o revocado
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+          '429':
+            description: Demasiadas solicitudes
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+
+    /register/citizen:
+      post:
+        tags:
+          - Publico
+        summary: Registro de Ciudadano (Auto-servicio)
+        description: >
+          Crea una cuenta con rol CIUDADANO por defecto.
+          Nota de privacidad: nombre y cédula se tratan como datos sensibles y no se exponen a roles operativos.
+        operationId: registerCitizen
+        parameters:
+          - $ref: '#/components/parameters/XCorrelationId'
+        requestBody:
+          required: true
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Usuario no encontrado
+                $ref: '#/components/schemas/RegistroCiudadanoRequest'
+        responses:
+          '201':
+            description: Usuario creado exitosamente
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/RegistroUsuarioResponse'
+          '409':
+            description: Email o Cédula ya registrados
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+          '429':
+            description: Demasiadas solicitudes
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+
+    # ----------------------------------------------------------------
+    # RECUPERACIÓN DE CONTRASEÑA (Tu flujo MVP)
+    # ----------------------------------------------------------------
+    /password/forgot:
+      post:
+        tags:
+          - Publico
+        summary: Solicitar recuperación
+        description: >
+          Genera token y envía correo (o log en MVP).
+          Para evitar enumeración de cuentas, la respuesta es uniforme: se devuelve 200 aunque el email no exista.
+        operationId: forgotPassword
+        parameters:
+          - $ref: '#/components/parameters/XCorrelationId'
+        requestBody:
+          required: true
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: object
+                required: [ email ]
+                properties:
+                  email: { type: string, format: email }
+        responses:
+          '200':
+            description: Solicitud procesada (respuesta uniforme)
+          '429':
+            description: Demasiadas solicitudes
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
 
-components:
-  securitySchemes:
-    BearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+    /password/reset:
+      post:
+        tags:
+          - Publico
+        summary: Establecer nueva contraseña
+        description: Usa el token recibido por correo.
+        operationId: resetPassword
+        parameters:
+          - $ref: '#/components/parameters/XCorrelationId'
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordResetRequest'
+        responses:
+          '200':
+            description: Contraseña cambiada correctamente
+          '400':
+            description: Token inválido o expirado
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+          '429':
+            description: Demasiadas solicitudes
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
 
-  schemas:
-    # --- ENUMS (Tus Roles del C3) ---
-    RolEnum:
-      type: string
-      enum:
-        - ADMIN_PLATAFORMA
-        - SUPERVISOR_DENUNCIAS
-        - JEFE_INTERNO
-        - JEFE_EXTERNO
-        - OPERADOR_INTERNO
-        - OPERADOR_EXTERNO
-        - AUDITOR
-        - CIUDADANO
+    # ----------------------------------------------------------------
+    # GESTIÓN DE CUENTA (REQUIERE TOKEN)
+    # ----------------------------------------------------------------
+    /me:
+      get:
+        tags:
+          - Cuenta
+        summary: Obtener perfil actual
+        description: >
+          Permite al frontend saber quién está logueado y qué rol tiene.
+          Para consumo interno entre microservicios, usar endpoints de perfil público/minimizado.
+        operationId: getMe
+        parameters:
+          - $ref: '#/components/parameters/XCorrelationId'
+        security:
+          - BearerAuth: []
+        responses:
+          '200':
+            description: Datos del usuario
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/UsuarioPerfilResponse'
+          '401':
+            description: No autorizado (token inválido o ausente)
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
 
-    EntidadEnum:
-      type: string
-      enum: [MUNICIPIO, EMPRESA_ELECTRICA, EMPRESA_AGUA, ASEO, POLICIA]
-      description: Organización a la que pertenece el funcionario.
+    /me/alias:
+      patch:
+        tags:
+          - Cuenta
+        summary: Actualizar alias público
+        description: >
+          Permite a roles de staff establecer o actualizar el alias público que verán los ciudadanos.
+          Reglas: no debe contener email, cédula ni nombres reales; el backend valida y puede rechazar.
+          Si el rol es CIUDADANO, este endpoint se rechaza.
+        operationId: updateMyAlias
+        parameters:
+          - $ref: '#/components/parameters/XCorrelationId'
+        security:
+          - BearerAuth: []
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActualizarAliasRequest'
+        responses:
+          '200':
+            description: Alias actualizado
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/AliasResponse'
+          '400':
+            description: Alias inválido (no cumple reglas de seguridad o formato)
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+          '401':
+            description: No autorizado
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+          '403':
+            description: Prohibido (rol no permitido para gestionar alias público)
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+          '429':
+            description: Demasiadas solicitudes
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
 
-    # --- REQUESTS ---
-    LoginRequest:
-      type: object
-      required: [ email, password ]
-      properties:
-        email:
-          type: string
-          format: email
-          example: "ciudadano@mail.com"
-        password:
-          type: string
-          example: "Secret123!"
+    /logout:
+      post:
+        tags:
+          - Cuenta
+        summary: Cerrar sesión actual
+        description: >
+          Invalida el refresh token entregado (revocación) para impedir futuras renovaciones.
+          Si se usa un modelo estrictamente stateless sin revocación, el cliente solo elimina tokens localmente.
+        operationId: logout
+        parameters:
+          - $ref: '#/components/parameters/XCorrelationId'
+        security:
+          - BearerAuth: []
+        requestBody:
+          required: false
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutRequest'
+        responses:
+          '204':
+            description: Sesión cerrada
+          '401':
+            description: No autorizado
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
 
-    RefreshTokenRequest:
-      type: object
-      required: [ refreshToken ]
-      properties:
-        refreshToken:
-          type: string
-          description: Refresh token vigente (rotación recomendada).
-          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    # ----------------------------------------------------------------
+    # ADMINISTRACIÓN DE STAFF (SOLO ADMIN)
+    # ----------------------------------------------------------------
+    /staff:
+      post:
+        tags:
+          - Admin
+        summary: Registrar funcionario (Operador, Jefe, Supervisor)
+        description: >
+          Endpoint exclusivo para el 'Administrador de la plataforma'.
+          Permite crear usuarios con roles elevados y asignarles su entidad (ej: Empresa Eléctrica).
+        operationId: registerStaff
+        parameters:
+          - $ref: '#/components/parameters/XCorrelationId'
+        security:
+          - BearerAuth: []
+        requestBody:
+          required: true
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistroStaffRequest'
+        responses:
+          '201':
+            description: Funcionario creado. Se le enviará correo para setear password.
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/RegistroUsuarioResponse'
+          '401':
+            description: No autorizado
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+          '403':
+            description: No tienes permisos de Administrador
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+          '409':
+            description: Email ya registrado o conflicto de creación
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+          '429':
+            description: Demasiadas solicitudes
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
 
-    LogoutRequest:
-      type: object
-      properties:
-        refreshToken:
-          type: string
-          description: >
-            Refresh token a revocar explícitamente si se usa un modelo donde el token no se infiere por contexto.
-          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    /users/{id}/public:
+      get:
+        tags:
+          - Admin
+        summary: Obtener perfil público/minimizado de usuario
+        description: >
+          Perfil minimizado para consumo interno entre microservicios.
+          Diseñado para evitar propagación de PII: no incluye nombre real, email ni cédula.
+          Para staff devuelve rol, entidad y alias público; para ciudadanos devuelve identificador público pseudónimo.
+        operationId: getUserPublicProfile
+        security:
+          - BearerAuth: []
+        parameters:
+          - $ref: '#/components/parameters/XCorrelationId'
+          - name: id
+            in: path
+            required: true
+            schema: { type: integer, format: int64 }
+        responses:
+          '200':
+            description: Perfil público/minimizado
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/UsuarioPublicoResponse'
+          '401':
+            description: No autorizado
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+          '403':
+            description: Prohibido (solo ADMIN_PLATAFORMA o roles habilitados)
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
+          '404':
+            description: Usuario no encontrado
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/ErrorResponse'
 
-    RegistroCiudadanoRequest:
-      type: object
-      required: [ email, password, nombre, cedula ]
-      properties:
-        email:
-          type: string
-          format: email
-        password:
-          type: string
-          minLength: 8
-        nombre:
-          type: string
-          description: Dato sensible. Solo visible para el propio ciudadano y para perfiles estrictamente autorizados.
-          example: "Juan Pérez"
-        cedula:
-          type: string
-          description: Dato sensible. No se expone a roles operativos.
-          example: "1712345678"
+  components:
+    securitySchemes:
+      BearerAuth:
+        type: http
+        scheme: bearer
+        bearerFormat: JWT
 
-    RegistroStaffRequest:
-      type: object
-      required: [ email, nombre, rol, entidad ]
-      properties:
-        email:
+    parameters:
+      XCorrelationId:
+        name: X-Correlation-Id
+        in: header
+        required: false
+        schema:
           type: string
-          format: email
-        nombre:
-          type: string
-          description: Nombre real (no se muestra a ciudadanos).
-          example: "Ing. Marco Supervisor"
-        aliasPublico:
-          type: string
-          minLength: 3
-          maxLength: 40
-          description: >
-            Nombre visible para el ciudadano. Debe ser distinto al nombre real y no contener PII (email, cédula).
-          example: "Supervisor Zona 1"
-        rol:
-          $ref: '#/components/schemas/RolEnum'
-        entidad:
-          $ref: '#/components/schemas/EntidadEnum'
+        description: Identificador de trazabilidad distribuida.
 
-    ActualizarAliasRequest:
-      type: object
-      required: [ aliasPublico ]
-      properties:
-        aliasPublico:
-          type: string
-          minLength: 3
-          maxLength: 40
-          description: >
-            Alias público a mostrar a ciudadanos. El backend valida que no contenga PII ni coincida con nombre real.
-          example: "Operador Marco"
+    schemas:
+      # --- ENUMS (Tus Roles del C3) ---
+      RolEnum:
+        type: string
+        enum:
+          - ADMIN_PLATAFORMA
+          - SUPERVISOR_DENUNCIAS
+          - JEFE_INTERNO
+          - JEFE_EXTERNO
+          - OPERADOR_INTERNO
+          - OPERADOR_EXTERNO
+          - AUDITOR
+          - CIUDADANO
 
-    PasswordResetRequest:
-      type: object
-      required: [ token, newPassword ]
-      properties:
-        token:
-          type: string
-        newPassword:
-          type: string
-          minLength: 8
+      EntidadEnum:
+        type: string
+        enum: [MUNICIPIO, EMPRESA_ELECTRICA, EMPRESA_AGUA, ASEO, POLICIA]
+        description: Organización a la que pertenece el funcionario.
 
-    # --- RESPONSES ---
-    AuthResponse:
-      type: object
-      properties:
-        accessToken:
-          type: string
-          description: JWT token
-        refreshToken:
-          type: string
-          description: Refresh token (rotación recomendada)
-        tokenType:
-          type: string
-          example: "Bearer"
-        expiresIn:
-          type: integer
-          description: Segundos
+      # --- REQUESTS ---
+      LoginRequest:
+        type: object
+        required: [ email, password ]
+        properties:
+          email:
+            type: string
+            format: email
+            example: "ciudadano@mail.com"
+          password:
+            type: string
+            example: "Secret123!"
 
-    RegistroUsuarioResponse:
-      type: object
-      properties:
-        id:
-          type: integer
-          format: int64
-          example: 1201
-        publicCitizenId:
-          type: string
-          nullable: true
-          description: >
-            Identificador público pseudónimo del ciudadano. Solo aplica a rol CIUDADANO.
-          example: "cit_7f3a2c9b1e"
-        mensaje:
-          type: string
-          example: "Usuario creado exitosamente."
+      RefreshTokenRequest:
+        type: object
+        required: [ refreshToken ]
+        properties:
+          refreshToken:
+            type: string
+            description: Refresh token vigente (rotación recomendada).
+            example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 
-    AliasResponse:
-      type: object
-      properties:
-        aliasPublico:
-          type: string
-          example: "Supervisor Zona 1"
+      LogoutRequest:
+        type: object
+        properties:
+          refreshToken:
+            type: string
+            description: >
+              Refresh token a revocar explícitamente si se usa un modelo donde el token no se infiere por contexto.
+            example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 
-    UsuarioPerfilResponse:
-      type: object
-      properties:
-        id:
-          type: integer
-          format: int64
-        publicCitizenId:
-          type: string
-          nullable: true
-          description: Identificador público pseudónimo (aplica a CIUDADANO).
-        email:
-          type: string
-        nombre:
-          type: string
-          description: >
-            Campo sensible. Solo retorna para el propio usuario (frontend). No usar para integraciones internas.
-        rol:
-          $ref: '#/components/schemas/RolEnum'
-        entidad:
-          $ref: '#/components/schemas/EntidadEnum'
-        aliasPublico:
-          type: string
-          nullable: true
-          description: Alias público (aplica a roles de staff).
-          example: "Operador Marco"
+      RegistroCiudadanoRequest:
+        type: object
+        required: [ email, password, nombre, cedula ]
+        properties:
+          email:
+            type: string
+            format: email
+          password:
+            type: string
+            minLength: 8
+          nombre:
+            type: string
+            description: Dato sensible. Solo visible para el propio ciudadano y para perfiles estrictamente autorizados.
+            example: "Juan Pérez"
+          cedula:
+            type: string
+            description: Dato sensible. No se expone a roles operativos.
+            example: "1712345678"
 
-    UsuarioPublicoResponse:
-      type: object
-      description: >
-        Respuesta minimizada para integraciones internas.
-        No expone nombre real, email ni cédula.
-      properties:
-        id:
-          type: integer
-          format: int64
-          example: 88
-        rol:
-          $ref: '#/components/schemas/RolEnum'
-        entidad:
-          $ref: '#/components/schemas/EntidadEnum'
-        aliasPublico:
-          type: string
-          nullable: true
-          description: Alias visible para ciudadanos si es staff.
-          example: "Operador Marco"
-        publicCitizenId:
-          type: string
-          nullable: true
-          description: Identificador público pseudónimo si es ciudadano.
-          example: "cit_7f3a2c9b1e"
+      RegistroStaffRequest:
+        type: object
+        required: [ email, nombre, rol, entidad ]
+        properties:
+          email:
+            type: string
+            format: email
+          nombre:
+            type: string
+            description: Nombre real (no se muestra a ciudadanos).
+            example: "Ing. Marco Supervisor"
+          aliasPublico:
+            type: string
+            minLength: 3
+            maxLength: 40
+            description: >
+              Nombre visible para el ciudadano. Debe ser distinto al nombre real y no contener PII (email, cédula).
+            example: "Supervisor Zona 1"
+          rol:
+            $ref: '#/components/schemas/RolEnum'
+          entidad:
+            $ref: '#/components/schemas/EntidadEnum'
 
-    ErrorResponse:
-      type: object
-      properties:
-        timestamp:
-          type: string
-          format: date-time
-          example: "2025-12-14T23:45:00Z"
-        status:
-          type: integer
-          example: 401
-        error:
-          type: string
-          example: "Unauthorized"
-        message:
-          type: string
-          example: "Token inválido o expirado."
-        path:
-          type: string
-          example: "/api/v1/auth/login"
-        correlationId:
-          type: string
-          description: Identificador de trazabilidad distribuida (gateway/microservicios).
-          example: "corr_9a1d2f7c"
+      ActualizarAliasRequest:
+        type: object
+        required: [ aliasPublico ]
+        properties:
+          aliasPublico:
+            type: string
+            minLength: 3
+            maxLength: 40
+            description: >
+              Alias público a mostrar a ciudadanos. El backend valida que no contenga PII ni coincida con nombre real.
+            example: "Operador Marco"
 
-security: []
+      PasswordResetRequest:
+        type: object
+        required: [ token, newPassword ]
+        properties:
+          token:
+            type: string
+          newPassword:
+            type: string
+            minLength: 8
+
+      # --- RESPONSES ---
+      AuthResponse:
+        type: object
+        properties:
+          accessToken:
+            type: string
+            description: JWT token
+          refreshToken:
+            type: string
+            description: Refresh token (rotación recomendada)
+          tokenType:
+            type: string
+            example: "Bearer"
+          expiresIn:
+            type: integer
+            description: Segundos
+
+      RegistroUsuarioResponse:
+        type: object
+        properties:
+          id:
+            type: integer
+            format: int64
+            example: 1201
+          publicCitizenId:
+            type: string
+            nullable: true
+            description: >
+              Identificador público pseudónimo del ciudadano. Solo aplica a rol CIUDADANO.
+            example: "cit_7f3a2c9b1e"
+          mensaje:
+            type: string
+            example: "Usuario creado exitosamente."
+
+      AliasResponse:
+        type: object
+        properties:
+          aliasPublico:
+            type: string
+            example: "Supervisor Zona 1"
+
+      UsuarioPerfilResponse:
+        type: object
+        properties:
+          id:
+            type: integer
+            format: int64
+          publicCitizenId:
+            type: string
+            nullable: true
+            description: Identificador público pseudónimo (aplica a CIUDADANO).
+          email:
+            type: string
+          nombre:
+            type: string
+            description: >
+              Campo sensible. Solo retorna para el propio usuario (frontend). No usar para integraciones internas.
+          rol:
+            $ref: '#/components/schemas/RolEnum'
+          entidad:
+            $ref: '#/components/schemas/EntidadEnum'
+          aliasPublico:
+            type: string
+            nullable: true
+            description: Alias público (aplica a roles de staff).
+            example: "Operador Marco"
+
+      UsuarioPublicoResponse:
+        type: object
+        description: >
+          Respuesta minimizada para integraciones internas.
+          No expone nombre real, email ni cédula.
+        properties:
+          id:
+            type: integer
+            format: int64
+            example: 88
+          rol:
+            $ref: '#/components/schemas/RolEnum'
+          entidad:
+            $ref: '#/components/schemas/EntidadEnum'
+          aliasPublico:
+            type: string
+            nullable: true
+            description: Alias visible para ciudadanos si es staff.
+            example: "Operador Marco"
+          publicCitizenId:
+            type: string
+            nullable: true
+            description: Identificador público pseudónimo si es ciudadano.
+            example: "cit_7f3a2c9b1e"
+
+      ErrorResponse:
+        type: object
+        properties:
+          timestamp:
+            type: string
+            format: date-time
+            example: "2025-12-14T23:45:00Z"
+          status:
+            type: integer
+            example: 401
+          error:
+            type: string
+            example: "Unauthorized"
+          message:
+            type: string
+            example: "Token inválido o expirado."
+          path:
+            type: string
+            example: "/api/v1/auth/login"
+          correlationId:
+            type: string
+            description: Identificador de trazabilidad distribuida (gateway/microservicios).
+            example: "corr_9a1d2f7c"
+
+  security: []
