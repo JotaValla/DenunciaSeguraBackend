@@ -19,13 +19,43 @@ Este paquete contiene los contratos OpenAPI (YAML) del backend, publicados como 
 @jotavalla:registry=https://npm.pkg.github.com
 ```
 
-2) Instala el paquete:
+2) Autentícate en GitHub Packages (requerido)
+
+GitHub Packages suele responder **404** si no estás autenticado o no tienes permiso, aunque el paquete exista.
+
+Opción A (recomendada): token en `.npmrc`
+
+1. Crea un **Personal Access Token (PAT)** en GitHub con permisos:
+  - `read:packages`
+  - si el repo/paquete es privado, también `repo`
+
+2. Agrega al `.npmrc` del repo (o a tu `~/.npmrc`):
+
+```ini
+@jotavalla:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=TU_TOKEN
+always-auth=true
+```
+
+Opción B: login interactivo
+
+```powershell
+npm login --registry=https://npm.pkg.github.com --scope=@jotavalla
+```
+
+Para validar que quedaste autenticado:
+
+```powershell
+npm whoami --registry=https://npm.pkg.github.com
+```
+
+3) Instala el paquete:
 
 ```powershell
 npm i @jotavalla/denunciasegura-openapi
 ```
 
-3) Apunta tu generator a un archivo dentro de `node_modules`:
+4) Apunta tu generator a un archivo dentro de `node_modules`:
 
 Ejemplo (ajusta a tu tooling):
 
