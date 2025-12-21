@@ -1,0 +1,45 @@
+name: Publish OpenAPI package
+
+on:
+  push:
+    tags:
+      - "openapi-v*"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs/api-contracts
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://npm.pkg.github.com
+          scope: '@jotavalla'
+
+      - name: Install
+        run: npm ci
+
+      - name: Validate OpenAPI
+        run: npm run validate:openapi
+
+      - name: Set version from tag
+        run: |
+          TAG_NAME="${GITHUB_REF_NAME}"
+          VERSION="${TAG_NAME#openapi-v}"
+          npm version "${VERSION}" --no-git-tag-version
+
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm publish
