@@ -387,6 +387,14 @@ components:
         descripcion:
           type: string
           example: "Hay una fuga de agua potable..."
+        latitud:
+          type: number
+          example: -34.6037
+          format: double
+        longitud:
+          type: number
+          example: -58.3816
+          format: double
         estado:
           $ref: '#/components/schemas/EstadoDenunciaEnum'
         # Ejemplo claro de anonimato del operador
@@ -394,7 +402,6 @@ components:
           type: string
           description: "Ej: 'Operador Marco' o 'Cuadrilla Eléctrica Norte'"
           example: "Operador Marco"
-
         evidenciaIds:
           type: array
           description: Evidencias aportadas por el ciudadano (visualizables por URL firmada desde el servicio de evidencias).
@@ -405,7 +412,6 @@ components:
           type: string
           example: "Fuga reparada. Se reemplazó la tubería dañada."
           description: Mensaje validado por el supervisor.
-
         evidenciaResolucionIds:
           type: array
           description: Evidencias de resolución (solo visibles cuando el supervisor aprueba/expone al ciudadano).
@@ -431,31 +437,38 @@ components:
         titulo:
           type: string
           example: "Fuga de agua en la calle 5"
+        descripcion:
+          type: string
+          example: "Hay una fuga de agua potable..."
+        latitud:
+          type: number
+          example: -34.6037
+          format: double
+        longitud:
+          type: number
+          example: -58.3816
+          format: double
         estado:
           $ref: '#/components/schemas/EstadoDenunciaEnum'
         # Datos Reales del Operador
         operadorId:
           type: integer
           example: 88
-
         evidenciaIds:
           type: array
           description: Evidencias del ciudadano asociadas a la denuncia (acceso controlado por roles/permisos).
           items:
             $ref: '#/components/schemas/EvidenceId'
           example: [ "ev_9c1a","ev_9c1b" ]
-
         comentarioTecnico:
           type: string
           example: "Tubería reemplazada y fuga sellada."
-
         evidenciaResolucionIds:
           type: array
           description: Evidencias aportadas por el operador para sustentar la resolución.
           items:
             $ref: '#/components/schemas/EvidenceId'
           example: [ "ev_aa01","ev_aa02" ]
-
         feedbackSupervisor:
           type: string
           example: "Buen trabajo, proceder a cerrar el caso."
