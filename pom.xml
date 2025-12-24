@@ -17,6 +17,12 @@
     <description>Backend for Denuncia Segura EC Application</description>
     <packaging>pom</packaging>
 
+    <modules>
+        <module>ms-gateway</module>
+        <module>ms-eureka</module>
+        <module>ms-configServer</module>
+    </modules>
+
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>25</maven.compiler.release>
