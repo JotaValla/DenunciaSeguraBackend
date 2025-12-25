@@ -1,0 +1,4 @@
+# Configuracion de logging de la aplicacion para formateo de fechas
+logging:
+  pattern:
+    dateformat: yyyy-MM-dd|HH:mm
