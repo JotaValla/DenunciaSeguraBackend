@@ -7,7 +7,17 @@ import com.andervalla.msdenuncias.controllers.dtos.requests.ValidarSolucionReque
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaEstadoHistorialResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaResumenResponse;
-import com.andervalla.msdenuncias.models.*;
+import com.andervalla.msdenuncias.exceptions.ComentarioObservacionRequeridoException;
+import com.andervalla.msdenuncias.exceptions.DenunciaEstadoInvalidoException;
+import com.andervalla.msdenuncias.exceptions.DenunciaNotFoundException;
+import com.andervalla.msdenuncias.exceptions.EntidadResponsableNoAsignadaException;
+import com.andervalla.msdenuncias.exceptions.EntidadResponsableYaAsignadaException;
+import com.andervalla.msdenuncias.exceptions.EvidenciasRequeridasException;
+import com.andervalla.msdenuncias.models.DenunciaAsignacionEntity;
+import com.andervalla.msdenuncias.models.DenunciaEntity;
+import com.andervalla.msdenuncias.models.DenunciaEstadoHistorialEntity;
+import com.andervalla.msdenuncias.models.DenunciaResolucionEntity;
+import com.andervalla.msdenuncias.models.DenunciaValidacionEntity;
 import com.andervalla.msdenuncias.models.enums.EntidadResponsableEnum;
 import com.andervalla.msdenuncias.models.enums.EstadoDenunciaEnum;
 import com.andervalla.msdenuncias.repositories.*;
@@ -79,7 +89,8 @@ public class DenunciaServiceImpl implements IDenunciaService {
     @Override
     @Transactional(readOnly = true)
     public DenunciaResponse obtenerDenuncia(Long denunciaId) {
-        DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId).orElseThrow();
+        DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId)
+                .orElseThrow(() -> new DenunciaNotFoundException(denunciaId));
         return denunciaMapper.toDenunciaResponseDTO(denunciaEncontrada);
     }
 
@@ -88,11 +99,12 @@ public class DenunciaServiceImpl implements IDenunciaService {
     public void asignarDenunciaEntidadResponsableSupervisor(Long denunciaId, EntidadResponsableEnum entidadResponsableEnum) {
 
         // 1. Buscar la denuncia
-        DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId).orElseThrow();
+        DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId)
+                .orElseThrow(() -> new DenunciaNotFoundException(denunciaId));
 
         // 2. Validar que la denuncia NO tenga una entidad responsable asignada
         if (denunciaEncontrada.getEntidadResponsable() != null){
-            throw new RuntimeException("La denuncia ya tiene una entidad responsable asignada"); //TODO: Cambiar excepcion
+            throw new EntidadResponsableYaAsignadaException(denunciaId);
         }
 
         // 3. Asignar la entidad responsable
@@ -108,11 +120,12 @@ public class DenunciaServiceImpl implements IDenunciaService {
     public void asignarDenunciaOperador(Long denunciaId, AsignarOperadorRequest asignarOperadorADenuncia) {
 
         // 1. Buscar la denuncia
-        DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId).orElseThrow();
+        DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId)
+                .orElseThrow(() -> new DenunciaNotFoundException(denunciaId));
 
         // 2. Validar que la denuncia exista
         if (denunciaEncontrada.getEntidadResponsable() == null){
-            throw new RuntimeException("Denuncia no encontrada"); //TODO: Cambiar excepcion
+            throw new EntidadResponsableNoAsignadaException(denunciaId);
         }
 
         // 3. Crear el registro de asignacion
@@ -141,11 +154,14 @@ public class DenunciaServiceImpl implements IDenunciaService {
     @Override
     public void iniciarProcesoDenunciaOperadores(Long denunciaId, Long operadorId) {
         //1. Buscar la denuncia
-        DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId).orElseThrow();
+        DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId)
+                .orElseThrow(() -> new DenunciaNotFoundException(denunciaId));
 
         //2. Validar que la denuncia este en estado ASIGNADA
-        if (denunciaEncontrada.getEstadoDenunciaEnum() != EstadoDenunciaEnum.ASIGNADA) {
-            throw new RuntimeException("La denuncia no se encuentra en estado ASIGNADA");
+        if (denunciaEncontrada.getEstadoDenunciaEnum() != EstadoDenunciaEnum.ASIGNADA || denunciaEncontrada.getEstadoDenunciaEnum() == EstadoDenunciaEnum.EN_PROCESO) {
+            throw new DenunciaEstadoInvalidoException(denunciaId,
+                    EstadoDenunciaEnum.ASIGNADA,
+                    denunciaEncontrada.getEstadoDenunciaEnum());
         }
 
         //3. Actualizar el estado de la denuncia a EN_PROCESO
@@ -162,16 +178,19 @@ public class DenunciaServiceImpl implements IDenunciaService {
     public void resolverDenunciaOperador(Long denunciaId, MarcarResolucionRequest marcarResolucionDenuncia) {
 
         //1. Buscar la denuncia
-        DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId).orElseThrow();
+        DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId)
+                .orElseThrow(() -> new DenunciaNotFoundException(denunciaId));
 
         //2. Validar que la denuncia este en estado EN_PROCESO
         if (denunciaEncontrada.getEstadoDenunciaEnum() != EstadoDenunciaEnum.EN_PROCESO) {
-            throw new RuntimeException("La denuncia no se encuentra en estado EN_PROCESO"); //TODO: Cambiar excepcion
+            throw new DenunciaEstadoInvalidoException(denunciaId,
+                    EstadoDenunciaEnum.EN_PROCESO,
+                    denunciaEncontrada.getEstadoDenunciaEnum());
         }
 
         //3. Validar que si exista evidencia
         if (marcarResolucionDenuncia.evidenciasIds() == null || marcarResolucionDenuncia.evidenciasIds().isEmpty()) {
-            throw new RuntimeException("Debe proporcionar al menos una evidencia para resolver la denuncia"); //TODO: Cambiar excepcion
+            throw new EvidenciasRequeridasException(denunciaId);
         }
 
         //4. Crear el registro de resolucion
@@ -203,15 +222,18 @@ public class DenunciaServiceImpl implements IDenunciaService {
     public void validarDenunciaJefe(Long denunciaId, ValidarSolucionRequest validarSolucionDenuncia) {
 
         //1. Buscar la denuncia
-        DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId).orElseThrow();
+        DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId)
+                .orElseThrow(() -> new DenunciaNotFoundException(denunciaId));
 
         //2. Validar que la denuncia este en estado EN_VALIDACION
         if (denunciaEncontrada.getEstadoDenunciaEnum() != EstadoDenunciaEnum.EN_VALIDACION) {
-            throw new RuntimeException("La denuncia no se encuentra en estado EN_VALIDACION");
+            throw new DenunciaEstadoInvalidoException(denunciaId,
+                    EstadoDenunciaEnum.EN_VALIDACION,
+                    denunciaEncontrada.getEstadoDenunciaEnum());
         }
 
         if (validarSolucionDenuncia.comentarioObservacion() == null) {
-            throw new RuntimeException("El comentario u observacion no puede ser nulo");
+            throw new ComentarioObservacionRequeridoException(denunciaId);
         }
 
         //3. Registrar una validacion aprobada
@@ -246,6 +268,7 @@ public class DenunciaServiceImpl implements IDenunciaService {
                     .aprobada(false)
                     .comentarioObservacion(validarSolucionDenuncia.comentarioObservacion())
                     .validadoPorId(validarSolucionDenuncia.validadoPorId())
+                    .ocurridoEn(Instant.now())
                     .build();
             // Guardar el registro de validacion
             denunciaValidacionRepository.save(validacion);
@@ -255,7 +278,8 @@ public class DenunciaServiceImpl implements IDenunciaService {
     @Override
     @Transactional(readOnly = true)
     public DenunciaEstadoHistorialResponse historialDenuncia(Long denunciaId) {
-        DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId).orElseThrow();
+        DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId)
+                .orElseThrow(() -> new DenunciaNotFoundException(denunciaId));
         List<DenunciaEstadoHistorialEntity> historialEntities =
                 denunciaEstadoHistorialRepository.findByDenunciaIdOrderByOcurridoEnAsc(denunciaId);
         return denunciaMapper.toDenunciaEstadoHistorialResponseDTO(denunciaEncontrada, historialEntities);

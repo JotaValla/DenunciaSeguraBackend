@@ -7,6 +7,7 @@ import com.andervalla.msdenuncias.controllers.dtos.requests.ValidarSolucionReque
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaEstadoHistorialResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaResumenResponse;
+import com.andervalla.msdenuncias.models.enums.EntidadResponsableEnum;
 import com.andervalla.msdenuncias.services.IDenunciaService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -31,6 +32,12 @@ public class DenunciaController {
     @GetMapping("/{denunciaId}")
     public DenunciaResponse obtenerDenunciaPorId(@PathVariable Long denunciaId){
         return denunciaService.obtenerDenuncia(denunciaId);
+    }
+
+    @PostMapping("/{denunciaId}/asignacion-entidad")
+    @ResponseStatus(HttpStatus.OK)
+    public void asignarEntidadADenuncia(@PathVariable Long denunciaId, @RequestParam String entidad ){
+        denunciaService.asignarDenunciaEntidadResponsableSupervisor(denunciaId, EntidadResponsableEnum.valueOf(entidad));
     }
 
     @PostMapping("/{denunciaId}/asignacion-operador")
