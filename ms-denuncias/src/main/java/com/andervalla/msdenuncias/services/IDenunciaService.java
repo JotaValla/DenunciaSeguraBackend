@@ -8,6 +8,7 @@ import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaEstadoHisto
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaResumenResponse;
 import com.andervalla.msdenuncias.models.DenunciaEntity;
+import com.andervalla.msdenuncias.models.enums.EntidadResponsableEnum;
 
 import java.util.List;
 
@@ -17,11 +18,15 @@ public interface IDenunciaService {
 
     DenunciaResponse obtenerDenuncia(Long denunciaId);
 
-    Void asignarDenunciaOperador(Long denunciaId, AsignarOperadorRequest asignarOperadorADenuncia);
+    void asignarDenunciaOperador(Long denunciaId, AsignarOperadorRequest asignarOperadorADenuncia);
 
-    Void resolverDenunciaOperador(Long denunciaId, MarcarResolucionRequest marcarResolucionDenuncia);
+    void asignarDenunciaEntidadResponsableSupervisor(Long denunciaId, EntidadResponsableEnum entidadResponsableEnum);
 
-    Void validarDenunciaJefe(Long denunciaId, ValidarSolucionRequest validarSolucionDenuncia);
+    void iniciarProcesoDenunciaOperadores(Long denunciaId, Long operadorId);
+
+    void resolverDenunciaOperador(Long denunciaId, MarcarResolucionRequest marcarResolucionDenuncia);
+
+    void validarDenunciaJefe(Long denunciaId, ValidarSolucionRequest validarSolucionDenuncia);
 
     DenunciaEstadoHistorialResponse historialDenuncia (Long  denunciaId);
 

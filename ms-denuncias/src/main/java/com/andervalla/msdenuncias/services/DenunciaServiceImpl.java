@@ -7,16 +7,19 @@ import com.andervalla.msdenuncias.controllers.dtos.requests.ValidarSolucionReque
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaEstadoHistorialResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaResumenResponse;
-import com.andervalla.msdenuncias.models.DenunciaEntity;
-import com.andervalla.msdenuncias.models.DenunciaEstadoHistorialEntity;
+import com.andervalla.msdenuncias.models.*;
+import com.andervalla.msdenuncias.models.enums.EntidadResponsableEnum;
 import com.andervalla.msdenuncias.models.enums.EstadoDenunciaEnum;
 import com.andervalla.msdenuncias.repositories.*;
 import com.andervalla.msdenuncias.services.mappers.DenunciaMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 
+@Slf4j
 @Service
 public class DenunciaServiceImpl implements IDenunciaService {
 
@@ -46,6 +49,11 @@ public class DenunciaServiceImpl implements IDenunciaService {
     @Override
     @Transactional
     public DenunciaResumenResponse crearDenuncia(CrearDenunciaRequest denunciaReq) {
+
+        //1. Determinar la entidad responsable de la denuncia
+        EntidadResponsableEnum entRespAsignada = determinarEntidadPorCategoria(denunciaReq);
+
+        //2. Crear la denuncia
         DenunciaEntity denunciaEntity = DenunciaEntity.builder()
                 .titulo(denunciaReq.titulo())
                 .descripcion(denunciaReq.descripcion())
@@ -54,11 +62,17 @@ public class DenunciaServiceImpl implements IDenunciaService {
                 .longitud(denunciaReq.longitud())
                 .nivelAnonimatoEnum(denunciaReq.nivelAnonimato())
                 .ciudadanoId(denunciaReq.ciudadanoId())
+                .entidadResponsable(entRespAsignada)
                 .estadoDenunciaEnum(EstadoDenunciaEnum.RECIBIDA)
                 .build();
 
+        //3. Guardar la denuncia
         DenunciaEntity denunciaGuardada = denunciaRepository.save(denunciaEntity);
+
+        //4. Registrar el cambio de estado
         registrarCambioEstado(denunciaGuardada, null, denunciaGuardada.getEstadoDenunciaEnum(), denunciaGuardada.getCiudadanoId());
+
+        //5. Retornar el resumen de la denuncia creada
         return new DenunciaResumenResponse(denunciaGuardada.getId(), "Denuncia creada");
     }
 
@@ -71,30 +85,180 @@ public class DenunciaServiceImpl implements IDenunciaService {
 
     @Override
     @Transactional
-    public Void asignarDenunciaOperador(Long denunciaId, AsignarOperadorRequest asignarOperadorADenuncia) {
+    public void asignarDenunciaEntidadResponsableSupervisor(Long denunciaId, EntidadResponsableEnum entidadResponsableEnum) {
+
+        // 1. Buscar la denuncia
         DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId).orElseThrow();
 
-        if (!(denunciaEncontrada.getEstadoDenunciaEnum().equals(EstadoDenunciaEnum.RECIBIDA))) {
-            throw new RuntimeException("Operador no encontrado"); //TODO: Cambiar esto
+        // 2. Validar que la denuncia NO tenga una entidad responsable asignada
+        if (denunciaEncontrada.getEntidadResponsable() != null){
+            throw new RuntimeException("La denuncia ya tiene una entidad responsable asignada"); //TODO: Cambiar excepcion
         }
 
-        return null;
+        // 3. Asignar la entidad responsable
+        denunciaEncontrada.setEntidadResponsable(entidadResponsableEnum);
+
+        // 4. Guardar la denuncia actualizada
+        denunciaRepository.save(denunciaEncontrada);
 
     }
 
     @Override
-    public Void resolverDenunciaOperador(Long denunciaId, MarcarResolucionRequest marcarResolucionDenuncia) {
-        return null;
+    @Transactional
+    public void asignarDenunciaOperador(Long denunciaId, AsignarOperadorRequest asignarOperadorADenuncia) {
+
+        // 1. Buscar la denuncia
+        DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId).orElseThrow();
+
+        // 2. Validar que la denuncia exista
+        if (denunciaEncontrada.getEntidadResponsable() == null){
+            throw new RuntimeException("Denuncia no encontrada"); //TODO: Cambiar excepcion
+        }
+
+        // 3. Crear el registro de asignacion
+        DenunciaAsignacionEntity asignacion = DenunciaAsignacionEntity.builder()
+                .denuncia(denunciaEncontrada)
+                .operadorAnteriorId(null)
+                .operadorNuevoId(asignarOperadorADenuncia.operadorId())
+                .asignadoPorId(asignarOperadorADenuncia.asignadoPorId())
+                .ocurridoEn(Instant.now())
+                .build();
+
+        //4. Guardar el registro de asignacion
+        EstadoDenunciaEnum estadoAnterior = denunciaEncontrada.getEstadoDenunciaEnum();
+        denunciaEncontrada.setEstadoDenunciaEnum(EstadoDenunciaEnum.ASIGNADA);
+        registrarCambioEstado(denunciaEncontrada, estadoAnterior, EstadoDenunciaEnum.ASIGNADA, asignarOperadorADenuncia.asignadoPorId());
+
+        //5. Guardar la denuncia actualizada y la asignacion
+        denunciaEncontrada.setOperadorId(asignarOperadorADenuncia.operadorId());
+        denunciaRepository.save(denunciaEncontrada);
+
+        //6. Guardar la asignacion
+        denunciaAsignacionRepository.save(asignacion);
+
     }
 
     @Override
-    public Void validarDenunciaJefe(Long denunciaId, ValidarSolucionRequest validarSolucionDenuncia) {
-        return null;
+    public void iniciarProcesoDenunciaOperadores(Long denunciaId, Long operadorId) {
+        //1. Buscar la denuncia
+        DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId).orElseThrow();
+
+        //2. Validar que la denuncia este en estado ASIGNADA
+        if (denunciaEncontrada.getEstadoDenunciaEnum() != EstadoDenunciaEnum.ASIGNADA) {
+            throw new RuntimeException("La denuncia no se encuentra en estado ASIGNADA");
+        }
+
+        //3. Actualizar el estado de la denuncia a EN_PROCESO
+        EstadoDenunciaEnum estadoAnterior = denunciaEncontrada.getEstadoDenunciaEnum();
+        denunciaEncontrada.setEstadoDenunciaEnum(EstadoDenunciaEnum.EN_PROCESO);
+        registrarCambioEstado(denunciaEncontrada, estadoAnterior, EstadoDenunciaEnum.EN_PROCESO, operadorId);
+
+        //4. Guardar la denuncia actualizada
+        denunciaRepository.save(denunciaEncontrada);
     }
 
     @Override
+    @Transactional
+    public void resolverDenunciaOperador(Long denunciaId, MarcarResolucionRequest marcarResolucionDenuncia) {
+
+        //1. Buscar la denuncia
+        DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId).orElseThrow();
+
+        //2. Validar que la denuncia este en estado EN_PROCESO
+        if (denunciaEncontrada.getEstadoDenunciaEnum() != EstadoDenunciaEnum.EN_PROCESO) {
+            throw new RuntimeException("La denuncia no se encuentra en estado EN_PROCESO"); //TODO: Cambiar excepcion
+        }
+
+        //3. Validar que si exista evidencia
+        if (marcarResolucionDenuncia.evidenciasIds() == null || marcarResolucionDenuncia.evidenciasIds().isEmpty()) {
+            throw new RuntimeException("Debe proporcionar al menos una evidencia para resolver la denuncia"); //TODO: Cambiar excepcion
+        }
+
+        //4. Crear el registro de resolucion
+        DenunciaResolucionEntity resolucion = DenunciaResolucionEntity.builder()
+                .denuncia(denunciaEncontrada)
+                .comentarioResolucion(marcarResolucionDenuncia.comentarioResolucion())
+                .resueltoPorId(marcarResolucionDenuncia.resueltoPorId())
+                .evienciaIds(String.join(",", marcarResolucionDenuncia.evidenciasIds()))
+                .ocurridoEn(Instant.now())
+                .build();
+
+        //5. Guardar el comentario de resolucion en la entidad Denuncia
+        denunciaEncontrada.setComentarioResolucion(marcarResolucionDenuncia.comentarioResolucion());
+
+        //6. Guardar el registro de resolucion
+        denunciaResolucionRepository.save(resolucion);
+
+        //7. Actualizar el estado de la denuncia a EN_VALIDACION
+        EstadoDenunciaEnum estadoAnterior = denunciaEncontrada.getEstadoDenunciaEnum();
+        denunciaEncontrada.setEstadoDenunciaEnum(EstadoDenunciaEnum.EN_VALIDACION);
+
+        registrarCambioEstado(denunciaEncontrada, estadoAnterior, EstadoDenunciaEnum.EN_VALIDACION, marcarResolucionDenuncia.resueltoPorId());
+        denunciaRepository.save(denunciaEncontrada);
+
+    }
+
+    @Override
+    @Transactional
+    public void validarDenunciaJefe(Long denunciaId, ValidarSolucionRequest validarSolucionDenuncia) {
+
+        //1. Buscar la denuncia
+        DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId).orElseThrow();
+
+        //2. Validar que la denuncia este en estado EN_VALIDACION
+        if (denunciaEncontrada.getEstadoDenunciaEnum() != EstadoDenunciaEnum.EN_VALIDACION) {
+            throw new RuntimeException("La denuncia no se encuentra en estado EN_VALIDACION");
+        }
+
+        if (validarSolucionDenuncia.comentarioObservacion() == null) {
+            throw new RuntimeException("El comentario u observacion no puede ser nulo");
+        }
+
+        //3. Registrar una validacion aprobada
+        if (validarSolucionDenuncia.aprobada()) {
+            //Actualizar el estado de la denuncia a RESUELTA
+            EstadoDenunciaEnum estadoAnterior = denunciaEncontrada.getEstadoDenunciaEnum();
+            denunciaEncontrada.setEstadoDenunciaEnum(EstadoDenunciaEnum.RESUELTA);
+            denunciaEncontrada.setComentarioObservacion(validarSolucionDenuncia.comentarioObservacion());
+            registrarCambioEstado(denunciaEncontrada, estadoAnterior, EstadoDenunciaEnum.RESUELTA, validarSolucionDenuncia.validadoPorId());
+            denunciaRepository.save(denunciaEncontrada);
+            // Crear el registro de validacion
+            DenunciaValidacionEntity validacion = DenunciaValidacionEntity.builder()
+                    .denuncia(denunciaEncontrada)
+                    .aprobada(true)
+                    .comentarioObservacion(validarSolucionDenuncia.comentarioObservacion())
+                    .validadoPorId(validarSolucionDenuncia.validadoPorId())
+                    .ocurridoEn(Instant.now())
+                    .build();
+            // Guardar el registro de validacion
+            denunciaValidacionRepository.save(validacion);
+        }else {
+            //Registrar una validacion no aprobada
+            //Actualizar el estado de la denuncia a EN_PROCESO
+            EstadoDenunciaEnum estadoAnterior = denunciaEncontrada.getEstadoDenunciaEnum();
+            denunciaEncontrada.setEstadoDenunciaEnum(EstadoDenunciaEnum.EN_PROCESO);
+            denunciaEncontrada.setComentarioObservacion(validarSolucionDenuncia.comentarioObservacion());
+            registrarCambioEstado(denunciaEncontrada, estadoAnterior, EstadoDenunciaEnum.EN_PROCESO, validarSolucionDenuncia.validadoPorId());
+            denunciaRepository.save(denunciaEncontrada);
+            // Crear el registro de validacion
+            DenunciaValidacionEntity validacion = DenunciaValidacionEntity.builder()
+                    .denuncia(denunciaEncontrada)
+                    .aprobada(false)
+                    .comentarioObservacion(validarSolucionDenuncia.comentarioObservacion())
+                    .validadoPorId(validarSolucionDenuncia.validadoPorId())
+                    .build();
+            // Guardar el registro de validacion
+            denunciaValidacionRepository.save(validacion);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public DenunciaEstadoHistorialResponse historialDenuncia(Long denunciaId) {
-        return null;
+        DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId).orElseThrow();
+        List<DenunciaEstadoHistorialEntity> historialEntities =
+                denunciaEstadoHistorialRepository.findByDenunciaIdOrderByOcurridoEnAsc(denunciaId);
+        return denunciaMapper.toDenunciaEstadoHistorialResponseDTO(denunciaEncontrada, historialEntities);
     }
 
     private void registrarCambioEstado(DenunciaEntity d,
@@ -106,7 +270,17 @@ public class DenunciaServiceImpl implements IDenunciaService {
         historialDenuncia.setEstadoAnterior(anterior);
         historialDenuncia.setEstadoAtual(nuevo);
         historialDenuncia.setActorId(actorId);
+        historialDenuncia.setOcurridoEn(Instant.now());
         denunciaEstadoHistorialRepository.save(historialDenuncia);
+    }
+
+    private EntidadResponsableEnum determinarEntidadPorCategoria(CrearDenunciaRequest denunciaReq) {
+        return switch (denunciaReq.categoriaDenuncia()) {
+            case ILUMINACION -> EntidadResponsableEnum.EMPRESA_ELECTRICA;
+            case AGUA -> EntidadResponsableEnum.EMPRESA_AGUA_POTABLE;
+            case VIALIDAD, SANIDAD, JARDINERIA -> EntidadResponsableEnum.MUNICIPIO;
+            case OTROS -> null; // A definir por el supervisor de denuncias
+        };
     }
     
 }

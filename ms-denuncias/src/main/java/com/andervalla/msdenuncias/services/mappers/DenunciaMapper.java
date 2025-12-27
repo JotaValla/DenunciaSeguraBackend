@@ -1,7 +1,10 @@
 package com.andervalla.msdenuncias.services.mappers;
 
+import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaEstadoHistorialResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaResponse;
+import com.andervalla.msdenuncias.controllers.dtos.responses.EstadoCambio;
 import com.andervalla.msdenuncias.models.DenunciaEntity;
+import com.andervalla.msdenuncias.models.DenunciaEstadoHistorialEntity;
 import lombok.NoArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -19,6 +22,7 @@ public final class DenunciaMapper {
                 denunciaEntity.getTitulo(),
                 denunciaEntity.getDescripcion(),
                 denunciaEntity.getCategoriaDenunciaEnum(),
+                denunciaEntity.getEntidadResponsable(),
                 denunciaEntity.getLatitud(),
                 denunciaEntity.getLongitud(),
                 denunciaEntity.getNivelAnonimatoEnum(),
@@ -31,5 +35,24 @@ public final class DenunciaMapper {
                 denunciaEntity.getCreadoEn(),
                 denunciaEntity.getActualizadoEn()
         );
+    }
+
+
+    public DenunciaEstadoHistorialResponse toDenunciaEstadoHistorialResponseDTO(DenunciaEntity denunciaEncontrada, List<DenunciaEstadoHistorialEntity> historialEntities) {
+
+        List<EstadoCambio> estadoCambios = historialEntities.stream()
+                .map(historialEntity -> new EstadoCambio(
+                        historialEntity.getEstadoAnterior(),
+                        historialEntity.getEstadoAtual(),
+                        historialEntity.getActorId(),
+                        historialEntity.getOcurridoEn()
+                ))
+                .toList();
+
+        return new DenunciaEstadoHistorialResponse(
+                denunciaEncontrada.getId(),
+                estadoCambios
+        );
+
     }
 }

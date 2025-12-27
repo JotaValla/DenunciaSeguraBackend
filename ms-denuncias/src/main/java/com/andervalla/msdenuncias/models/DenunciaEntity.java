@@ -1,6 +1,7 @@
 package com.andervalla.msdenuncias.models;
 
 import com.andervalla.msdenuncias.models.enums.CategoriaDenunciaEnum;
+import com.andervalla.msdenuncias.models.enums.EntidadResponsableEnum;
 import com.andervalla.msdenuncias.models.enums.EstadoDenunciaEnum;
 import com.andervalla.msdenuncias.models.enums.NivelAnonimatoEnum;
 import jakarta.persistence.*;
@@ -46,6 +47,10 @@ public class DenunciaEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "categoria_denuncia", nullable = false, length = 40 )
     private CategoriaDenunciaEnum categoriaDenunciaEnum;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "entidad_responsable", nullable = true, length = 40)
+    private EntidadResponsableEnum entidadResponsable;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "estado_denuncia", nullable = false, length = 30)

@@ -26,11 +26,14 @@ public class DenunciaAsignacionEntity {
     @JoinColumn(name = "denuncia_id", nullable = false)
     private DenunciaEntity denuncia;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private Long operadorAnteriorId;
 
     @Column(nullable = false)
     private Long operadorNuevoId;
+
+    @Column(nullable = false)
+    private Long asignadoPorId;
 
     @Column(nullable = false)
     private Instant ocurridoEn;

@@ -1,6 +1,7 @@
 package com.andervalla.msdenuncias.controllers.dtos.responses;
 
 import com.andervalla.msdenuncias.models.enums.CategoriaDenunciaEnum;
+import com.andervalla.msdenuncias.models.enums.EntidadResponsableEnum;
 import com.andervalla.msdenuncias.models.enums.EstadoDenunciaEnum;
 import com.andervalla.msdenuncias.models.enums.NivelAnonimatoEnum;
 
@@ -12,6 +13,7 @@ public record DenunciaResponse(
         String titulo,
         String descripcion,
         CategoriaDenunciaEnum categoriaDenuncia,
+        EntidadResponsableEnum entidadResponsable,
         Double latitud,
         Double longitud,
         NivelAnonimatoEnum nivelAnonimato,

@@ -29,11 +29,11 @@ public class DenunciaEstadoHistorialEntity {
     private DenunciaEntity denuncia;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "estado_anterior", nullable = false, length = 30)
+    @Column(name = "estado_anterior", length = 30, nullable = true)
     private EstadoDenunciaEnum estadoAnterior;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "estado_actual", nullable = false, length = 30)
+    @Column(name = "estado_actual", length = 30)
     private EstadoDenunciaEnum estadoAtual;
 
     @Column(name = "actor_id", nullable = false)
