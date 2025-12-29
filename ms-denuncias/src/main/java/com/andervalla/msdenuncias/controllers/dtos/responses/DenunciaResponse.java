@@ -24,6 +24,7 @@ public record DenunciaResponse(
         String comentarioResolucion,
         String comentarioObservacion,
         List<EvidenciaDTO> evidenciaCreacionIds,
+        List<EvidenciaDTO> evidenciasResolucionIds,
         Instant creadoEn,
         Instant actualizadoEn
 ) {

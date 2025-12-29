@@ -15,9 +15,10 @@ import java.util.List;
 @Component
 public final class DenunciaMapper {
 
-    public  DenunciaResponse toDenunciaResponseDTO(DenunciaEntity denunciaEntity, List<EvidenciaDTO> evidenciasExternas) {
+    public  DenunciaResponse toDenunciaResponseDTO(DenunciaEntity denunciaEntity, List<EvidenciaDTO> evidenciasExternas, List<EvidenciaDTO> evidenciasResolucionExternas) {
 
         List<EvidenciaDTO> evidenciasFinales = (evidenciasExternas != null) ? evidenciasExternas : List.of();
+        List<EvidenciaDTO> evidenciasResolucionFinales = (evidenciasResolucionExternas != null) ? evidenciasResolucionExternas : List.of();
 
         return new DenunciaResponse(
                 denunciaEntity.getId(),
@@ -34,6 +35,7 @@ public final class DenunciaMapper {
                 denunciaEntity.getComentarioResolucion(),
                 denunciaEntity.getComentarioObservacion(),
                 evidenciasFinales,
+                evidenciasResolucionFinales,
                 denunciaEntity.getCreadoEn(),
                 denunciaEntity.getActualizadoEn()
         );

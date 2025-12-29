@@ -26,6 +26,7 @@ import com.andervalla.msdenuncias.models.enums.EstadoDenunciaEnum;
 import com.andervalla.msdenuncias.repositories.*;
 import com.andervalla.msdenuncias.services.mappers.DenunciaMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.validator.internal.util.logging.Log;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -115,19 +116,27 @@ public class DenunciaServiceImpl implements IDenunciaService {
                 .orElseThrow(() -> new DenunciaNotFoundException(denunciaId));
 
         // 1. Obtener Evidencias del Microservicio Externo
-        List<EvidenciaDTO> evidencias;
+        List<EvidenciaDTO> evidenciasCiudadano = List.of();
         try {
             // Llamada Feign Client
-            evidencias = evidenciasClient.obtenerEvidencias("DENUNCIA", denunciaId);
+            evidenciasCiudadano = evidenciasClient.obtenerEvidencias("DENUNCIA", denunciaId);
         } catch (Exception e) {
-            // Si falla el microservicio de evidencias, no rompemos la denuncia,
-            // solo devolvemos lista vacía y logueamos el error.
-            // log.error("Error al obtener evidencias", e);
-            evidencias = List.of();
+            evidenciasCiudadano = List.of();
         }
 
-        // 2. Llamar al Mapper pasando AMBOS datos (Entidad + Evidencias)
-        return denunciaMapper.toDenunciaResponseDTO(denunciaEncontrada, evidencias);
+        // 2. Obtener Evidencias del OPERADOR
+        List<EvidenciaDTO> evidenciasResolucion = List.of();
+        if (denunciaEncontrada.getEstadoDenunciaEnum() == EstadoDenunciaEnum.EN_VALIDACION ||
+                denunciaEncontrada.getEstadoDenunciaEnum() == EstadoDenunciaEnum.RESUELTA) {
+            try {
+                evidenciasResolucion = evidenciasClient.obtenerEvidencias("RESOLUCION", denunciaId);
+            } catch (Exception e) {
+                System.out.println(e);
+            }
+        }
+
+        // 3. Llamar al Mapper pasando AMBOS datos (Entidad + Evidencias)
+        return denunciaMapper.toDenunciaResponseDTO(denunciaEncontrada, evidenciasCiudadano, evidenciasResolucion);
 
     }
 
@@ -245,7 +254,20 @@ public class DenunciaServiceImpl implements IDenunciaService {
         //6. Guardar el registro de resolucion
         denunciaResolucionRepository.save(resolucion);
 
-        //7. Actualizar el estado de la denuncia a EN_VALIDACION
+        //7. Vincular las evidencias a la denuncia
+        try {
+            evidenciasClient.adjuntarEvidencias(AdjuntarEvidenciaRequest.builder()
+                    .entidadTipo("RESOLUCION")
+                    .entidadId(denunciaId)
+                    .evidenciasIds(marcarResolucionDenuncia.evidenciasIds())
+                    .usuarioId(marcarResolucionDenuncia.resueltoPorId())
+                    .build()
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("Error al vincular evidencias de resolución: " + e.getMessage());
+        }
+
+        //8. Actualizar el estado de la denuncia a EN_VALIDACION
         EstadoDenunciaEnum estadoAnterior = denunciaEncontrada.getEstadoDenunciaEnum();
         denunciaEncontrada.setEstadoDenunciaEnum(EstadoDenunciaEnum.EN_VALIDACION);
 

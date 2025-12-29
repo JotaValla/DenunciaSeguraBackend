@@ -33,10 +33,10 @@ public class EvidenciaEntity {
     private EstadoEvidenciaEnum estado;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, name = "tipo_entidad")
+    @Column(nullable = true, name = "tipo_entidad")
     private EntidadTipoEnum tipoEntidad;
 
-    @Column(nullable = false, name = "entidad_id")
+    @Column(nullable = true, name = "entidad_id")
     private Long entidadId;
 
     @CreationTimestamp
