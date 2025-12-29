@@ -1,5 +1,6 @@
 package com.andervalla.msdenuncias.services.mappers;
 
+import com.andervalla.msdenuncias.clients.dtos.EvidenciaDTO;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaEstadoHistorialResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.EstadoCambio;
@@ -14,8 +15,9 @@ import java.util.List;
 @Component
 public final class DenunciaMapper {
 
-    public  DenunciaResponse toDenunciaResponseDTO(DenunciaEntity denunciaEntity) {
-        List<String> evidenciaCreacion = List.of();
+    public  DenunciaResponse toDenunciaResponseDTO(DenunciaEntity denunciaEntity, List<EvidenciaDTO> evidenciasExternas) {
+
+        List<EvidenciaDTO> evidenciasFinales = (evidenciasExternas != null) ? evidenciasExternas : List.of();
 
         return new DenunciaResponse(
                 denunciaEntity.getId(),
@@ -31,7 +33,7 @@ public final class DenunciaMapper {
                 denunciaEntity.getOperadorId(),
                 denunciaEntity.getComentarioResolucion(),
                 denunciaEntity.getComentarioObservacion(),
-                evidenciaCreacion,
+                evidenciasFinales,
                 denunciaEntity.getCreadoEn(),
                 denunciaEntity.getActualizadoEn()
         );

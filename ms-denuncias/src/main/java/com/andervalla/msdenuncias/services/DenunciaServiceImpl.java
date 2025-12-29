@@ -1,5 +1,8 @@
 package com.andervalla.msdenuncias.services;
 
+import com.andervalla.msdenuncias.clients.EvidenciasClient;
+import com.andervalla.msdenuncias.clients.dtos.AdjuntarEvidenciaRequest;
+import com.andervalla.msdenuncias.clients.dtos.EvidenciaDTO;
 import com.andervalla.msdenuncias.controllers.dtos.requests.AsignarOperadorRequest;
 import com.andervalla.msdenuncias.controllers.dtos.requests.CrearDenunciaRequest;
 import com.andervalla.msdenuncias.controllers.dtos.requests.MarcarResolucionRequest;
@@ -40,13 +43,16 @@ public class DenunciaServiceImpl implements IDenunciaService {
     private final DenunciaValidacionRepository denunciaValidacionRepository;
     private final DenunciaMapper denunciaMapper;
 
+    private final EvidenciasClient evidenciasClient;
+
     public DenunciaServiceImpl(
             DenunciaRepository denunciaRepository,
             DenunciaEstadoHistorialRepository denunciaEstadoHistorialRepository,
             DenunciaAsignacionRepository denunciaAsignacionRepository,
             DenunciaResolucionRepository denunciaResolucionRepository,
             DenunciaValidacionRepository denunciaValidacionRepository,
-            DenunciaMapper denunciaMapper
+            DenunciaMapper denunciaMapper,
+            EvidenciasClient evidenciasClient
     ) {
         this.denunciaRepository = denunciaRepository;
         this.denunciaEstadoHistorialRepository = denunciaEstadoHistorialRepository;
@@ -54,6 +60,7 @@ public class DenunciaServiceImpl implements IDenunciaService {
         this.denunciaResolucionRepository = denunciaResolucionRepository;
         this.denunciaValidacionRepository = denunciaValidacionRepository;
         this.denunciaMapper = denunciaMapper;
+        this.evidenciasClient = evidenciasClient;
     }
 
     @Override
@@ -82,6 +89,21 @@ public class DenunciaServiceImpl implements IDenunciaService {
         //4. Registrar el cambio de estado
         registrarCambioEstado(denunciaGuardada, null, denunciaGuardada.getEstadoDenunciaEnum(), denunciaGuardada.getCiudadanoId());
 
+        if (denunciaReq.evidenciasIds() != null && !denunciaReq.evidenciasIds().isEmpty()) {
+            try {
+                evidenciasClient.adjuntarEvidencias(AdjuntarEvidenciaRequest.builder()
+                        .entidadTipo("DENUNCIA")
+                        .entidadId(denunciaGuardada.getId())
+                        .evidenciasIds(denunciaReq.evidenciasIds())
+                        .usuarioId(denunciaReq.ciudadanoId())
+                        .build()
+                );
+            } catch (Exception e) {
+                // Si falla la vinculación, lanzamos excepción para hacer rollback de la denuncia
+                throw new RuntimeException("Error al vincular evidencias: " + e.getMessage());
+            }
+        }
+
         //5. Retornar el resumen de la denuncia creada
         return new DenunciaResumenResponse(denunciaGuardada.getId(), "Denuncia creada");
     }
@@ -91,7 +113,22 @@ public class DenunciaServiceImpl implements IDenunciaService {
     public DenunciaResponse obtenerDenuncia(Long denunciaId) {
         DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId)
                 .orElseThrow(() -> new DenunciaNotFoundException(denunciaId));
-        return denunciaMapper.toDenunciaResponseDTO(denunciaEncontrada);
+
+        // 1. Obtener Evidencias del Microservicio Externo
+        List<EvidenciaDTO> evidencias;
+        try {
+            // Llamada Feign Client
+            evidencias = evidenciasClient.obtenerEvidencias("DENUNCIA", denunciaId);
+        } catch (Exception e) {
+            // Si falla el microservicio de evidencias, no rompemos la denuncia,
+            // solo devolvemos lista vacía y logueamos el error.
+            // log.error("Error al obtener evidencias", e);
+            evidencias = List.of();
+        }
+
+        // 2. Llamar al Mapper pasando AMBOS datos (Entidad + Evidencias)
+        return denunciaMapper.toDenunciaResponseDTO(denunciaEncontrada, evidencias);
+
     }
 
     @Override
@@ -103,7 +140,7 @@ public class DenunciaServiceImpl implements IDenunciaService {
                 .orElseThrow(() -> new DenunciaNotFoundException(denunciaId));
 
         // 2. Validar que la denuncia NO tenga una entidad responsable asignada
-        if (denunciaEncontrada.getEntidadResponsable() != null){
+        if (denunciaEncontrada.getEntidadResponsable() != null) {
             throw new EntidadResponsableYaAsignadaException(denunciaId);
         }
 
@@ -124,7 +161,7 @@ public class DenunciaServiceImpl implements IDenunciaService {
                 .orElseThrow(() -> new DenunciaNotFoundException(denunciaId));
 
         // 2. Validar que la denuncia exista
-        if (denunciaEncontrada.getEntidadResponsable() == null){
+        if (denunciaEncontrada.getEntidadResponsable() == null) {
             throw new EntidadResponsableNoAsignadaException(denunciaId);
         }
 
@@ -254,7 +291,7 @@ public class DenunciaServiceImpl implements IDenunciaService {
                     .build();
             // Guardar el registro de validacion
             denunciaValidacionRepository.save(validacion);
-        }else {
+        } else {
             //Registrar una validacion no aprobada
             //Actualizar el estado de la denuncia a EN_PROCESO
             EstadoDenunciaEnum estadoAnterior = denunciaEncontrada.getEstadoDenunciaEnum();
@@ -306,5 +343,5 @@ public class DenunciaServiceImpl implements IDenunciaService {
             case OTROS -> null; // A definir por el supervisor de denuncias
         };
     }
-    
+
 }

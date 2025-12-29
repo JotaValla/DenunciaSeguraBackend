@@ -1,5 +1,6 @@
 package com.andervalla.msdenuncias.controllers.dtos.responses;
 
+import com.andervalla.msdenuncias.clients.dtos.EvidenciaDTO;
 import com.andervalla.msdenuncias.models.enums.CategoriaDenunciaEnum;
 import com.andervalla.msdenuncias.models.enums.EntidadResponsableEnum;
 import com.andervalla.msdenuncias.models.enums.EstadoDenunciaEnum;
@@ -22,7 +23,7 @@ public record DenunciaResponse(
         Long operadorId,
         String comentarioResolucion,
         String comentarioObservacion,
-        List<String> evidenciaCreacionIds,
+        List<EvidenciaDTO> evidenciaCreacionIds,
         Instant creadoEn,
         Instant actualizadoEn
 ) {

@@ -9,6 +9,7 @@
         <option value="$PROJECT_DIR$/ms-eureka/pom.xml" />
         <option value="$PROJECT_DIR$/ms-configServer/pom.xml" />
         <option value="$PROJECT_DIR$/ms-denuncias/pom.xml" />
+        <option value="$PROJECT_DIR$/ms-evidencias/pom.xml" />
       </list>
     </option>
   </component>
