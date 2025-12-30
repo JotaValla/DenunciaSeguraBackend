@@ -85,6 +85,28 @@ paths:
         '404':
           description: Notificación no encontrada o no pertenece al usuario
 
+  /me/leidas:
+    patch:
+      tags:
+        - Buzon
+      summary: Marcar todas mis notificaciones no leídas como leídas
+      description: >
+        Marca como leídas todas las notificaciones del usuario autenticado que aún estén en estado no leído.
+        Operación idempotente: si no existen no leídas, no realiza cambios.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: X-Correlation-Id
+          in: header
+          required: false
+          schema: { type: string }
+          description: Identificador de trazabilidad distribuida (propagado desde gateway).
+      responses:
+        '204':
+          description: Estado actualizado correctamente (Sin contenido)
+        '401':
+          description: No autorizado
+
   # ----------------------------------------------------------------
   # ENDPOINTS INTERNOS (INTEGRACIÓN)
   # ----------------------------------------------------------------

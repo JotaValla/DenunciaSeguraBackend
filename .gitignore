@@ -38,7 +38,6 @@ coverage/
 
 # Env files
 .env
-.env.*
 
 # --- Python (if used later) ---
 __pycache__/
