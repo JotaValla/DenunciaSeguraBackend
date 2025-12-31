@@ -6,7 +6,7 @@ on:
       - "openapi-v*"
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
@@ -43,3 +43,12 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm publish
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        working-directory: ${{ github.workspace }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes
