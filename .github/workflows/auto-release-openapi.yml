@@ -42,13 +42,29 @@ jobs:
       - name: Validate OpenAPI
         run: npm run validate:openapi
 
+      - name: Determine base version (latest tag)
+        id: base
+        run: |
+          set -euo pipefail
+          LATEST_TAG=$(git tag -l 'openapi-v*' --sort=-v:refname | head -n 1 || true)
+          if [ -n "$LATEST_TAG" ]; then
+            echo "version=${LATEST_TAG#openapi-v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Align package.json to base version
+        run: npm version "${{ steps.base.outputs.version }}" --no-git-tag-version
+
       - name: Bump patch version
         run: npm version patch --no-git-tag-version
 
       - name: Read new version
         id: ver
         run: |
-          echo "version=$(node -p \"require('./package.json').version\")" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Commit version bump
         run: |
@@ -62,5 +78,11 @@ jobs:
 
       - name: Create and push tag
         run: |
-          git tag "openapi-v${{ steps.ver.outputs.version }}"
-          git push origin "openapi-v${{ steps.ver.outputs.version }}"
+          set -euo pipefail
+          TAG="openapi-v${{ steps.ver.outputs.version }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists; nothing to do."
+            exit 0
+          fi
+          git tag "$TAG"
+          git push origin "$TAG"
