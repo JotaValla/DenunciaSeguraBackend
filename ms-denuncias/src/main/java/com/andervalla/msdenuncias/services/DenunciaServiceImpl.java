@@ -16,6 +16,7 @@ import com.andervalla.msdenuncias.exceptions.DenunciaNotFoundException;
 import com.andervalla.msdenuncias.exceptions.EntidadResponsableNoAsignadaException;
 import com.andervalla.msdenuncias.exceptions.EntidadResponsableYaAsignadaException;
 import com.andervalla.msdenuncias.exceptions.EvidenciasRequeridasException;
+import com.andervalla.msdenuncias.exceptions.EvidenciasVinculacionException;
 import com.andervalla.msdenuncias.models.DenunciaAsignacionEntity;
 import com.andervalla.msdenuncias.models.DenunciaEntity;
 import com.andervalla.msdenuncias.models.DenunciaEstadoHistorialEntity;
@@ -26,7 +27,6 @@ import com.andervalla.msdenuncias.models.enums.EstadoDenunciaEnum;
 import com.andervalla.msdenuncias.repositories.*;
 import com.andervalla.msdenuncias.services.mappers.DenunciaMapper;
 import lombok.extern.slf4j.Slf4j;
-import org.hibernate.validator.internal.util.logging.Log;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -108,7 +108,7 @@ public class DenunciaServiceImpl implements IDenunciaService {
             );
         } catch (Exception e) {
             // Si falla la vinculación, lanzamos excepción para hacer rollback de la denuncia
-            throw new RuntimeException("Error al vincular evidencias: " + e.getMessage());
+            throw new EvidenciasVinculacionException("Error al vincular evidencias: " + e.getMessage());
         }
 
         //6. Retornar el resumen de la denuncia creada
@@ -127,6 +127,7 @@ public class DenunciaServiceImpl implements IDenunciaService {
             // Llamada Feign Client
             evidenciasCiudadano = evidenciasClient.obtenerEvidencias("DENUNCIA", denunciaId);
         } catch (Exception e) {
+            log.warn("No se pudieron obtener evidencias de denuncia {}", denunciaId, e);
             evidenciasCiudadano = List.of();
         }
 
@@ -137,7 +138,7 @@ public class DenunciaServiceImpl implements IDenunciaService {
             try {
                 evidenciasResolucion = evidenciasClient.obtenerEvidencias("RESOLUCION", denunciaId);
             } catch (Exception e) {
-                System.out.println(e);
+                log.warn("No se pudieron obtener evidencias de resolucion {}", denunciaId, e);
             }
         }
 
@@ -270,7 +271,7 @@ public class DenunciaServiceImpl implements IDenunciaService {
                     .build()
             );
         } catch (Exception e) {
-            throw new RuntimeException("Error al vincular evidencias de resolución: " + e.getMessage());
+            throw new EvidenciasVinculacionException("Error al vincular evidencias de resolucion: " + e.getMessage());
         }
 
         //8. Actualizar el estado de la denuncia a EN_VALIDACION
@@ -373,3 +374,4 @@ public class DenunciaServiceImpl implements IDenunciaService {
     }
 
 }
+

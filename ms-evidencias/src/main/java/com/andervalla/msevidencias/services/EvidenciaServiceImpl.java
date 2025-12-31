@@ -2,6 +2,8 @@ package com.andervalla.msevidencias.services;
 
 import com.andervalla.msevidencias.controllers.dtos.requests.AdjuntarEvidenciaRequest;
 import com.andervalla.msevidencias.controllers.dtos.responses.EvidenciaInternaResponse;
+import com.andervalla.msevidencias.exceptions.EvidenciaEstadoInvalidoException;
+import com.andervalla.msevidencias.exceptions.EvidenciaYaAsociadaException;
 import com.andervalla.msevidencias.exceptions.ResourceNotFoundException;
 import com.andervalla.msevidencias.exceptions.ResourceNotValidException;
 import com.andervalla.msevidencias.models.Enums.EntidadTipoEnum;
@@ -34,18 +36,18 @@ public class EvidenciaServiceImpl implements IEvidenciaService{
 
         //2. Validar que se encontraron todas las evidencias
         if (evidencias.size() != request.evidenciasIds().size()) {
-            throw new RuntimeException("Una o más evidencias no fueron encontradas");
+            throw new ResourceNotFoundException("Una o más evidencias no fueron encontradas");
         }
 
         //3. Validar estado y propiedad
         for (EvidenciaEntity ev : evidencias) {
             // Solo adjuntar si el estado es "DISPONIBLE"
             if (ev.getEstado() != EstadoEvidenciaEnum.DISPONIBLE){
-                throw new RuntimeException("La evidencia con ID " + ev.getId() + " no está en estado DISPONIBLE");
+                throw new EvidenciaEstadoInvalidoException("La evidencia con ID " + ev.getId() + " no está en estado DISPONIBLE");
             }
             // Validar que no pertenezca ya a otra entidad distinta
             if (ev.getEntidadId() != null && !ev.getEntidadId().equals(request.entidadId())) {
-                throw new RuntimeException("La evidencia con ID " + ev.getId() + " ya está asociada a otra entidad");
+                throw new EvidenciaYaAsociadaException("La evidencia con ID " + ev.getId() + " ya está asociada a otra entidad");
             }
             // Vincular
             ev.setEntidadId(request.entidadId());
@@ -132,3 +134,4 @@ public class EvidenciaServiceImpl implements IEvidenciaService{
     }
 
 }
+

@@ -2,6 +2,8 @@ package com.andervalla.msevidencias.services;
 
 import com.andervalla.msevidencias.controllers.dtos.SupabaseSignResponse;
 import com.andervalla.msevidencias.exceptions.StorageException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -11,6 +13,8 @@ import java.util.Map;
 
 @Service
 public class SupabaseStorageService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(SupabaseStorageService.class);
 
     private final RestClient restClient;
     private final String bucketName;
@@ -124,7 +128,7 @@ public class SupabaseStorageService {
 
         } catch (Exception e) {
             // Solo logueamos el error, no queremos romper el flujo si el archivo ya no existe
-            System.err.println("Advertencia: No se pudo borrar el archivo " + pathArchivo + ": " + e.getMessage());
+            LOGGER.warn("Advertencia: No se pudo borrar el archivo {}: {}", pathArchivo, e.getMessage());
         }
     }
 

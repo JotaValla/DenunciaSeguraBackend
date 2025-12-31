@@ -1,13 +1,10 @@
-package com.andervalla.msdenuncias.controllers;
+package com.andervalla.msevidencias.controllers;
 
-import com.andervalla.msdenuncias.controllers.dtos.responses.ErrorResponse;
-import com.andervalla.msdenuncias.exceptions.ComentarioObservacionRequeridoException;
-import com.andervalla.msdenuncias.exceptions.DenunciaEstadoInvalidoException;
-import com.andervalla.msdenuncias.exceptions.DenunciaNotFoundException;
-import com.andervalla.msdenuncias.exceptions.EntidadResponsableNoAsignadaException;
-import com.andervalla.msdenuncias.exceptions.EntidadResponsableYaAsignadaException;
-import com.andervalla.msdenuncias.exceptions.EvidenciasVinculacionException;
-import com.andervalla.msdenuncias.exceptions.EvidenciasRequeridasException;
+import com.andervalla.msevidencias.controllers.dtos.responses.ErrorResponse;
+import com.andervalla.msevidencias.exceptions.EvidenciaEstadoInvalidoException;
+import com.andervalla.msevidencias.exceptions.EvidenciaYaAsociadaException;
+import com.andervalla.msevidencias.exceptions.ResourceNotFoundException;
+import com.andervalla.msevidencias.exceptions.StorageException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
@@ -24,16 +21,21 @@ import java.time.Instant;
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
-    @ExceptionHandler(DenunciaNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleNotFound(DenunciaNotFoundException ex,
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex,
                                                         HttpServletRequest request) {
         return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage(), request.getRequestURI());
     }
 
+    @ExceptionHandler(StorageException.class)
+    public ResponseEntity<ErrorResponse> handleStorage(StorageException ex,
+                                                       HttpServletRequest request) {
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), request.getRequestURI());
+    }
+
     @ExceptionHandler({
-            DenunciaEstadoInvalidoException.class,
-            EntidadResponsableYaAsignadaException.class,
-            EntidadResponsableNoAsignadaException.class
+            EvidenciaEstadoInvalidoException.class,
+            EvidenciaYaAsociadaException.class
     })
     public ResponseEntity<ErrorResponse> handleConflict(RuntimeException ex,
                                                         HttpServletRequest request) {
@@ -41,8 +43,6 @@ public class ApiExceptionHandler {
     }
 
     @ExceptionHandler({
-            EvidenciasRequeridasException.class,
-            ComentarioObservacionRequeridoException.class,
             MethodArgumentNotValidException.class,
             ConstraintViolationException.class,
             MissingServletRequestParameterException.class,
@@ -53,10 +53,16 @@ public class ApiExceptionHandler {
         return buildResponse(HttpStatus.BAD_REQUEST, message, request.getRequestURI());
     }
 
-    @ExceptionHandler(EvidenciasVinculacionException.class)
-    public ResponseEntity<ErrorResponse> handleExternalDependency(EvidenciasVinculacionException ex,
-                                                                  HttpServletRequest request) {
-        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), request.getRequestURI());
+    @ExceptionHandler({SecurityException.class, RuntimeException.class})
+    public ResponseEntity<ErrorResponse> handleSecurity(RuntimeException ex,
+                                                        HttpServletRequest request) {
+        if (ex instanceof SecurityException || isSecurityExceptionMessage(ex.getMessage())) {
+            String message = ex.getMessage() != null ? ex.getMessage() : "Solicitud invalida";
+            return buildResponse(HttpStatus.BAD_REQUEST, message, request.getRequestURI());
+        }
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR,
+                "Error interno del servidor",
+                request.getRequestURI());
     }
 
     @ExceptionHandler(Exception.class)
@@ -95,5 +101,13 @@ public class ApiExceptionHandler {
             return "Cuerpo de la solicitud invalido o mal formado";
         }
         return ex.getMessage() != null ? ex.getMessage() : "Solicitud invalida";
+    }
+
+    private boolean isSecurityExceptionMessage(String message) {
+        if (message == null || message.isBlank()) {
+            return false;
+        }
+        String normalized = message.toLowerCase();
+        return normalized.contains("seguridad") || normalized.contains("magic bytes");
     }
 }
