@@ -71,6 +71,12 @@ public class DenunciaServiceImpl implements IDenunciaService {
         //1. Determinar la entidad responsable de la denuncia
         EntidadResponsableEnum entRespAsignada = determinarEntidadPorCategoria(denunciaReq);
 
+        String evidenciasString = null;
+
+        if (denunciaReq.evidenciasIds() != null && !denunciaReq.evidenciasIds().isEmpty()) {
+            evidenciasString = String.join(",", denunciaReq.evidenciasIds());
+        }
+
         //2. Crear la denuncia
         DenunciaEntity denunciaEntity = DenunciaEntity.builder()
                 .titulo(denunciaReq.titulo())
@@ -78,6 +84,7 @@ public class DenunciaServiceImpl implements IDenunciaService {
                 .categoriaDenunciaEnum(denunciaReq.categoriaDenuncia())
                 .latitud(denunciaReq.latitud())
                 .longitud(denunciaReq.longitud())
+                .evidenciasIds(evidenciasString)
                 .nivelAnonimatoEnum(denunciaReq.nivelAnonimato())
                 .ciudadanoId(denunciaReq.ciudadanoId())
                 .entidadResponsable(entRespAsignada)
@@ -90,22 +97,21 @@ public class DenunciaServiceImpl implements IDenunciaService {
         //4. Registrar el cambio de estado
         registrarCambioEstado(denunciaGuardada, null, denunciaGuardada.getEstadoDenunciaEnum(), denunciaGuardada.getCiudadanoId());
 
-        if (denunciaReq.evidenciasIds() != null && !denunciaReq.evidenciasIds().isEmpty()) {
-            try {
-                evidenciasClient.adjuntarEvidencias(AdjuntarEvidenciaRequest.builder()
-                        .entidadTipo("DENUNCIA")
-                        .entidadId(denunciaGuardada.getId())
-                        .evidenciasIds(denunciaReq.evidenciasIds())
-                        .usuarioId(denunciaReq.ciudadanoId())
-                        .build()
-                );
-            } catch (Exception e) {
-                // Si falla la vinculación, lanzamos excepción para hacer rollback de la denuncia
-                throw new RuntimeException("Error al vincular evidencias: " + e.getMessage());
-            }
+        //5. Vincular las evidencias a la denuncia en el microservicio externo
+        try {
+            evidenciasClient.adjuntarEvidencias(AdjuntarEvidenciaRequest.builder()
+                    .entidadTipo("DENUNCIA")
+                    .entidadId(denunciaGuardada.getId())
+                    .evidenciasIds(denunciaReq.evidenciasIds())
+                    .usuarioId(denunciaReq.ciudadanoId())
+                    .build()
+            );
+        } catch (Exception e) {
+            // Si falla la vinculación, lanzamos excepción para hacer rollback de la denuncia
+            throw new RuntimeException("Error al vincular evidencias: " + e.getMessage());
         }
 
-        //5. Retornar el resumen de la denuncia creada
+        //6. Retornar el resumen de la denuncia creada
         return new DenunciaResumenResponse(denunciaGuardada.getId(), "Denuncia creada");
     }
 

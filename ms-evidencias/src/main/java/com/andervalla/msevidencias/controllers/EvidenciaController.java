@@ -29,4 +29,21 @@ public class EvidenciaController {
             @PathVariable Long id) {
         return ResponseEntity.ok(evidenciaService.buscarPorEntidad(tipo, id));
     }
+
+    @PostMapping("/{id}/confirmar")
+    public ResponseEntity<Void> confirmarCarga(@PathVariable String id) {
+        evidenciaService.confirmarEvidencia(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/uploads")
+    public ResponseEntity<EvidenciaInternaResponse> crearIntencionDeCarga(
+            @RequestParam String filename,
+            @RequestParam String contentType,
+            @RequestParam Long size) {
+
+        return ResponseEntity.ok(evidenciaService.iniciarCarga(filename, contentType, size));
+    }
+
+
 }

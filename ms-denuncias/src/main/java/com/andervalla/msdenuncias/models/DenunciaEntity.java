@@ -44,6 +44,9 @@ public class DenunciaEntity {
     @Column(nullable = false)
     private Double longitud;
 
+    @Column(name = "evidencias_ids", columnDefinition = "text")
+    private String evidenciasIds;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "categoria_denuncia", nullable = false, length = 40 )
     private CategoriaDenunciaEnum categoriaDenunciaEnum;

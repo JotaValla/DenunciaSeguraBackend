@@ -5,6 +5,7 @@ import com.andervalla.msevidencias.models.Enums.EstadoEvidenciaEnum;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.time.Instant;
@@ -18,6 +19,9 @@ public class EvidenciaEntity {
     @Id
     @UuidGenerator
     private String id;
+
+    @Column(nullable = false, name = "nombre_archivo")
+    private String nombreArchivo;
 
     @Column(nullable = false, name = "ruta_storage")
     private String pathStorage;
@@ -44,6 +48,7 @@ public class EvidenciaEntity {
     private Instant creadoEn;
 
     @Column(nullable = false, name = "actualizado_en")
+    @UpdateTimestamp
     private Instant actualizadoEn;
 
     @Column(nullable = false, name = "usuario_creador_id")

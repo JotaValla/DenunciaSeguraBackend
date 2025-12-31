@@ -10,4 +10,7 @@ public interface IEvidenciaService {
 
     void adjuntarEvidenciasAEntidad(AdjuntarEvidenciaRequest request);
     List<EvidenciaInternaResponse> buscarPorEntidad(EntidadTipoEnum tipo, Long id);
+    void confirmarEvidencia(String evidenciaId);
+    EvidenciaInternaResponse iniciarCarga(String filename, String contentType, Long sizeBytes);
+
 }
