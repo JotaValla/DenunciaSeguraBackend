@@ -58,7 +58,15 @@ jobs:
           fi
 
       - name: Align package.json to base version
-        run: npm version "${{ steps.base.outputs.version }}" --no-git-tag-version
+        run: |
+          set -euo pipefail
+          CURRENT=$(node -p "require('./package.json').version")
+          BASE="${{ steps.base.outputs.version }}"
+          if [ "$CURRENT" = "$BASE" ]; then
+            echo "package.json already at version $BASE"
+            exit 0
+          fi
+          npm version "$BASE" --no-git-tag-version
 
       - name: Bump patch version
         run: npm version patch --no-git-tag-version
