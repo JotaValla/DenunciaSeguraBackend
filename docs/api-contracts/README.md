@@ -68,11 +68,12 @@ npx @openapitools/openapi-generator-cli generate `
 
 ## Publicación
 
-Se publica automáticamente cuando se crea un tag `openapi-v*` en este repositorio.
+Se publica automáticamente cuando hay cambios en los contratos (`docs/api-contracts/*.yaml|yml`) en la rama principal.
 
-Ejemplo:
+El flujo:
 
-```powershell
-git tag openapi-v0.1.1
-git push origin openapi-v0.1.1
-```
+- valida los OpenAPI
+- incrementa la versión (patch)
+- crea tag `openapi-vX.Y.Z`
+- publica el paquete en GitHub Packages
+- crea el GitHub Release

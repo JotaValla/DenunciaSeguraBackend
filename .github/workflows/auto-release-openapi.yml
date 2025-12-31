@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 concurrency:
   group: openapi-auto-release-${{ github.ref }}
@@ -35,6 +36,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          registry-url: https://npm.pkg.github.com
+          scope: '@jotavalla'
 
       - name: Install
         run: npm ci
@@ -87,3 +90,17 @@ jobs:
           fi
           git tag "$TAG"
           git push origin "$TAG"
+
+      - name: Publish package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm publish
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        working-directory: ${{ github.workspace }}
+        run: |
+          gh release create "openapi-v${{ steps.ver.outputs.version }}" \
+            --title "openapi-v${{ steps.ver.outputs.version }}" \
+            --generate-notes
