@@ -50,7 +50,8 @@ jobs:
           if [ -n "$LATEST_TAG" ]; then
             echo "version=${LATEST_TAG#openapi-v}" >> "$GITHUB_OUTPUT"
           else
-            echo "version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+            VERSION=$(node -p "require('./package.json').version")
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Align package.json to base version
