@@ -1,0 +1,7 @@
+# Configuración de la aplicación ms-usuarios
+spring:
+  application:
+    name: ms-usuarios
+
+  config:
+    import: optional:configserver:http://localhost:8888
