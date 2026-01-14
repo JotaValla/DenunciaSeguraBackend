@@ -11,6 +11,7 @@
         <option value="$PROJECT_DIR$/ms-denuncias/pom.xml" />
         <option value="$PROJECT_DIR$/ms-evidencias/pom.xml" />
         <option value="$PROJECT_DIR$/ms-usuarios/pom.xml" />
+        <option value="$PROJECT_DIR$/ms-auth/pom.xml" />
       </list>
     </option>
   </component>

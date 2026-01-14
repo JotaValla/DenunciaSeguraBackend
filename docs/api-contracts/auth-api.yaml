@@ -9,7 +9,7 @@
 
   servers:
     - url: /api/v1/auth
-      description: Gateway Auth Path
+      description: Gateway Auth Path (OAuth2/OIDC)
 
   tags:
     - name: Publico
@@ -19,90 +19,130 @@
     - name: Admin
       description: Gestión de usuarios del sistema (Staff).
 
+
   paths:
+
+    /.well-known/openid-configuration:
+      get:
+        tags:
+          - Publico
+        summary: Descubrimiento OIDC
+        description: Metadatos OIDC del Authorization Server.
+        operationId: oidcDiscovery
+        responses:
+          '200':
+            description: Metadatos OIDC
+    /oauth2/authorize:
+      get:
+        tags:
+          - Publico
+        summary: Authorization Endpoint (Auth Code + PKCE)
+        description: Inicia el flujo OAuth2/OIDC Authorization Code con PKCE.
+        operationId: oauthAuthorize
+        parameters:
+          - name: response_type
+            in: query
+            required: true
+            schema: { type: string, example: "code" }
+          - name: client_id
+            in: query
+            required: true
+            schema: { type: string }
+          - name: redirect_uri
+            in: query
+            required: true
+            schema: { type: string }
+          - name: scope
+            in: query
+            required: true
+            schema: { type: string, example: "openid profile" }
+          - name: state
+            in: query
+            required: false
+            schema: { type: string }
+          - name: code_challenge
+            in: query
+            required: true
+            schema: { type: string }
+          - name: code_challenge_method
+            in: query
+            required: true
+            schema: { type: string, example: "S256" }
+        responses:
+          '302':
+            description: Redireccion con authorization code
+    /oauth2/token:
+      post:
+        tags:
+          - Publico
+        summary: Token Endpoint
+        description: Intercambia authorization code por tokens o renueva con refresh token.
+        operationId: oauthToken
+        requestBody:
+          required: true
+          content:
+            application/x-www-form-urlencoded:
+              schema:
+                type: object
+                properties:
+                  grant_type: { type: string, example: "authorization_code" }
+                  code: { type: string }
+                  redirect_uri: { type: string }
+                  client_id: { type: string }
+                  code_verifier: { type: string }
+                  refresh_token: { type: string }
+        responses:
+          '200':
+            description: Tokens emitidos
+    /oauth2/jwks:
+      get:
+        tags:
+          - Publico
+        summary: JWKS
+        description: Llaves publicas para validar JWT.
+        operationId: jwks
+        responses:
+          '200':
+            description: JWKS
+    /userinfo:
+      get:
+        tags:
+          - Cuenta
+        summary: UserInfo OIDC
+        description: Perfil del usuario autenticado (PII solo para el propio usuario).
+        operationId: userInfo
+        security:
+          - BearerAuth: []
+        responses:
+          '200':
+            description: Datos del usuario
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/UsuarioPerfilResponse'
+    /oauth2/revoke:
+      post:
+        tags:
+          - Cuenta
+        summary: Revocar token
+        description: Revoca refresh token.
+        operationId: revokeToken
+        requestBody:
+          required: true
+          content:
+            application/x-www-form-urlencoded:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  token_type_hint: { type: string, example: "refresh_token" }
+        responses:
+          '200':
+            description: Token revocado
+
     # ------------------------------------------------------------
     # AUTENTICACIÓN PÚBLICA
     # ------------------------------------------------------------
-    /login:
-      post:
-        tags:
-          - Publico
-        summary: Iniciar sesión
-        description: >
-          Recibe credenciales y devuelve Access Token + Refresh Token.
-          Controles defensivos: rate limiting y bloqueo temporal ante intentos fallidos.
-        operationId: login
-        parameters:
-          - $ref: '#/components/parameters/XCorrelationId'
-        requestBody:
-          required: true
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LoginRequest'
-        responses:
-          '200':
-            description: Login exitoso
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/AuthResponse'
-          '401':
-            description: Credenciales inválidas
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/ErrorResponse'
-          '423':
-            description: Cuenta temporalmente bloqueada por múltiples intentos fallidos
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/ErrorResponse'
-          '429':
-            description: Demasiadas solicitudes (rate limit / anti-bruteforce)
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/ErrorResponse'
-
-    /token/refresh:
-      post:
-        tags:
-          - Publico
-        summary: Renovar tokens (refresh)
-        description: >
-          Canjea un refresh token por un nuevo access token y un nuevo refresh token (rotación).
-          Si el refresh token está revocado, expirado o no corresponde al estado de rotación, se rechaza.
-        operationId: refreshToken
-        parameters:
-          - $ref: '#/components/parameters/XCorrelationId'
-        requestBody:
-          required: true
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RefreshTokenRequest'
-        responses:
-          '200':
-            description: Tokens renovados
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/AuthResponse'
-          '401':
-            description: Refresh token inválido, expirado o revocado
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/ErrorResponse'
-          '429':
-            description: Demasiadas solicitudes
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/ErrorResponse'
-
     /register/citizen:
       post:
         tags:
@@ -207,33 +247,6 @@
     # ----------------------------------------------------------------
     # GESTIÓN DE CUENTA (REQUIERE TOKEN)
     # ----------------------------------------------------------------
-    /me:
-      get:
-        tags:
-          - Cuenta
-        summary: Obtener perfil actual
-        description: >
-          Permite al frontend saber quién está logueado y qué rol tiene.
-          Para consumo interno entre microservicios, usar endpoints de perfil público/minimizado.
-        operationId: getMe
-        parameters:
-          - $ref: '#/components/parameters/XCorrelationId'
-        security:
-          - BearerAuth: []
-        responses:
-          '200':
-            description: Datos del usuario
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/UsuarioPerfilResponse'
-          '401':
-            description: No autorizado (token inválido o ausente)
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/ErrorResponse'
-
     /me/alias:
       patch:
         tags:
@@ -281,35 +294,6 @@
                   $ref: '#/components/schemas/ErrorResponse'
           '429':
             description: Demasiadas solicitudes
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/ErrorResponse'
-
-    /logout:
-      post:
-        tags:
-          - Cuenta
-        summary: Cerrar sesión actual
-        description: >
-          Invalida el refresh token entregado (revocación) para impedir futuras renovaciones.
-          Si se usa un modelo estrictamente stateless sin revocación, el cliente solo elimina tokens localmente.
-        operationId: logout
-        parameters:
-          - $ref: '#/components/parameters/XCorrelationId'
-        security:
-          - BearerAuth: []
-        requestBody:
-          required: false
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LogoutRequest'
-        responses:
-          '204':
-            description: Sesión cerrada
-          '401':
-            description: No autorizado
             content:
               application/json:
                 schema:
@@ -401,7 +385,7 @@
                 schema:
                   $ref: '#/components/schemas/ErrorResponse'
           '403':
-            description: Prohibido (solo ADMIN_PLATAFORMA o roles habilitados)
+            description: Prohibido (solo ADMIN o roles habilitados)
             content:
               application/json:
                 schema:
@@ -434,51 +418,20 @@
       RolEnum:
         type: string
         enum:
-          - ADMIN_PLATAFORMA
-          - SUPERVISOR_DENUNCIAS
-          - JEFE_INTERNO
-          - JEFE_EXTERNO
-          - OPERADOR_INTERNO
-          - OPERADOR_EXTERNO
-          - AUDITOR
+          - ADMIN
+          - SUPERVISOR
+          - JEFE_OP_INT
+          - JEFE_OP_EXT
+          - OP_INT
+          - OP_EXT
           - CIUDADANO
 
       EntidadEnum:
         type: string
-        enum: [MUNICIPIO, EMPRESA_ELECTRICA, EMPRESA_AGUA, ASEO, POLICIA]
+        enum: [MUNICIPIO, EMPRESA_ELECTRICA, EMPRESA_AGUA_POTABLE]
         description: Organización a la que pertenece el funcionario.
 
       # --- REQUESTS ---
-      LoginRequest:
-        type: object
-        required: [ email, password ]
-        properties:
-          email:
-            type: string
-            format: email
-            example: "ciudadano@mail.com"
-          password:
-            type: string
-            example: "Secret123!"
-
-      RefreshTokenRequest:
-        type: object
-        required: [ refreshToken ]
-        properties:
-          refreshToken:
-            type: string
-            description: Refresh token vigente (rotación recomendada).
-            example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-
-      LogoutRequest:
-        type: object
-        properties:
-          refreshToken:
-            type: string
-            description: >
-              Refresh token a revocar explícitamente si se usa un modelo donde el token no se infiere por contexto.
-            example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-
       RegistroCiudadanoRequest:
         type: object
         required: [ email, password, nombre, cedula ]
@@ -500,11 +453,15 @@
 
       RegistroStaffRequest:
         type: object
-        required: [ email, nombre, rol, entidad ]
+        required: [ email, nombre, cedula, rol, entidad ]
         properties:
           email:
             type: string
             format: email
+          cedula:
+            type: string
+            description: Identificador de usuario (cedula).
+            example: "1712345678"
           nombre:
             type: string
             description: Nombre real (no se muestra a ciudadanos).
@@ -544,22 +501,6 @@
             minLength: 8
 
       # --- RESPONSES ---
-      AuthResponse:
-        type: object
-        properties:
-          accessToken:
-            type: string
-            description: JWT token
-          refreshToken:
-            type: string
-            description: Refresh token (rotación recomendada)
-          tokenType:
-            type: string
-            example: "Bearer"
-          expiresIn:
-            type: integer
-            description: Segundos
-
       RegistroUsuarioResponse:
         type: object
         properties:
@@ -653,7 +594,7 @@
             example: "Token inválido o expirado."
           path:
             type: string
-            example: "/api/v1/auth/login"
+            example: "/oauth2/authorize"
           correlationId:
             type: string
             description: Identificador de trazabilidad distribuida (gateway/microservicios).

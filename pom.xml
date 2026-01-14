@@ -24,6 +24,7 @@
         <module>ms-denuncias</module>
         <module>ms-evidencias</module>
         <module>ms-usuarios</module>
+        <module>ms-auth</module>
     </modules>
 
     <properties>

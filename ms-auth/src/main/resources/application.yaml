@@ -1,0 +1,14 @@
+# Configuraci?n de la aplicaci?n ms-auth
+spring:
+  application:
+    name: ms-auth
+
+  config:
+    import: optional:configserver:http://localhost:8888
+
+logging:
+  level:
+    org.springframework.security: DEBUG
+    org.springframework.security.oauth2: DEBUG
+    org.springframework.security.web: DEBUG
+    org.springframework.security.oauth2.server.authorization: DEBUG
