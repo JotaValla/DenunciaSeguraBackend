@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
-@FeignClient(name = "ms-usuarios", url = "${ms-usuarios.url:http://localhost:9090}")
+@FeignClient(name = "ms-usuarios", url = "${ms-usuarios.url:http://localhost:9091}")
 public interface MsUsuariosClient {
 
     @PostMapping("/interno/usuarios/ciudadano")

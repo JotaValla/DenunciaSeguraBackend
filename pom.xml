@@ -18,13 +18,13 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>ms-gateway</module>
         <module>ms-eureka</module>
         <module>ms-configServer</module>
         <module>ms-denuncias</module>
         <module>ms-evidencias</module>
         <module>ms-usuarios</module>
         <module>ms-auth</module>
+        <module>gateway</module>
     </modules>
 
     <properties>

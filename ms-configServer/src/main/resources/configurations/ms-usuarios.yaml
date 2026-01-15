@@ -9,6 +9,10 @@ spring:
     username: ${DB_USER:postgres.your-id-on-supabase}
     password: ${DB_PASSWORD:your-password-on-supabase}
     url: ${DB_URL:jdbc:postgresql://aws-0-us-west-2.pooler.supabase.com:5432/postgres}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+      max-lifetime: 60000
 
   security:
     oauth2:
@@ -29,7 +33,7 @@ spring:
 
 # Configuración del servidor y Eureka
 server:
-  port: 9090
+  port: 9091
 eureka:
   instance:
     hostname: localhost

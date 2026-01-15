@@ -1,10 +1,10 @@
-package com.andervalla.msgateway;
+package com.andervalla.gateway;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class MsGatewayApplicationTests {
+class GatewayApplicationTests {
 
     @Test
     void contextLoads() {
