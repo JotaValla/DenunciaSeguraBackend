@@ -27,7 +27,7 @@ spring:
 
 # Configuración del servidor y Eureka
 server:
-  port: 8082
+  port: 8083
 eureka:
   instance:
     hostname: localhost

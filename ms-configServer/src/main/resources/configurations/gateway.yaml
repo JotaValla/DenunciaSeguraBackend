@@ -1,34 +1,36 @@
-# Configuración de gateway (centralizada en config-server)
 spring:
   application:
     name: gateway
+
   cloud:
     gateway:
-      discovery:
-        locator:
-          enabled: true
-          lower-case-service-id: true
-      routes:
-        - id: ms-auth
-          uri: lb://ms-auth
-          predicates:
-            - Path=/auth/**
-          filters:
-            - StripPrefix=1
-        - id: ms-usuarios
-          uri: lb://ms-usuarios
-          predicates:
-            - Path=/usuarios/**,/interno/usuarios/**
-          filters:
-            - StripPrefix=1
-        - id: ms-denuncias
-          uri: lb://ms-denuncias
-          predicates:
-            - Path=/api/denuncias/**
-        - id: ms-evidencias
-          uri: lb://ms-evidencias
-          predicates:
-            - Path=/interno/adjuntar/**,/interno/entidades/**,/interno/uploads/**,/interno/*/confirmar
+      server:
+        webmvc:
+          routes:
+            - id: ms-auth
+              uri: lb://ms-auth
+              predicates:
+                - Path=/auth/**
+              filters:
+                - StripPrefix=1
+
+            - id: ms-usuarios
+              uri: lb://ms-usuarios
+              predicates:
+                - Path=/usuarios/**,/interno/usuarios/**
+              filters:
+                - StripPrefix=1
+
+            - id: ms-denuncias
+              uri: lb://ms-denuncias
+              predicates:
+                - Path=/api/denuncias/**
+
+            - id: ms-evidencias
+              uri: lb://ms-evidencias
+              predicates:
+                - Path=/interno/adjuntar/**,/interno/entidades/**,/interno/uploads/**,/interno/*/confirmar
+
   security:
     oauth2:
       resourceserver:

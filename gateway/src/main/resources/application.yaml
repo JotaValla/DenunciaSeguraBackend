@@ -13,3 +13,12 @@ eureka:
     service-url:
       defaultZone: http://localhost:8761/eureka/
     register-with-eureka: true
+
+logging:
+  level:
+    root: INFO
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.cloud.gateway.server.mvc: DEBUG
+    org.springframework.web.servlet.function: DEBUG
+
