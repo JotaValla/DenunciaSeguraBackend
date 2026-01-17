@@ -2,6 +2,17 @@
 spring:
   application:
     name: ms-auth
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
 
   # Configuración de la base de datos PostgreSQL
   datasource:
@@ -44,6 +55,7 @@ app:
     client:
       id: ${AUTH_CLIENT_ID:ds-web}
       redirect-uris: ${AUTH_REDIRECT_URIS:http://localhost:5173/login/oauth2/code,https://oauth.pstmn.io/v1/callback}
+    reset-url: ${RESET_URL:http://localhost:5173/reset-password?token=}
 
 ms-usuarios:
   url: ${MS_USUARIOS_URL:http://localhost:9091}

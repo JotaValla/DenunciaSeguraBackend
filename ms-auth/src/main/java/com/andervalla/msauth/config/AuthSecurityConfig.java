@@ -126,7 +126,7 @@ public class AuthSecurityConfig {
     @Bean
     @Order(0)
     public SecurityFilterChain publicEndpointsChain(HttpSecurity http) throws Exception {
-        http.securityMatcher("/register/**", "/actuator/health")
+        http.securityMatcher("/register/**", "/actuator/health", "/auth/password/**", "/password/**", "/error")
                 .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
                 .csrf(csrf -> csrf.disable());
         return http.build();
