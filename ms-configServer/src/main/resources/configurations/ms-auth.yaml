@@ -33,6 +33,7 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        default_schema: ms_auth
     database: postgresql
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 

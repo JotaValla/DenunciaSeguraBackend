@@ -22,6 +22,7 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        default_schema: ms_evidencias
     database: postgresql
     database-platform: org.hibernate.dialect.PostgreSQLDialect
   security:

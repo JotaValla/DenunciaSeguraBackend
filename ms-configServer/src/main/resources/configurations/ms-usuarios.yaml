@@ -28,6 +28,7 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        default_schema: ms_usuarios
     database: postgresql
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 
