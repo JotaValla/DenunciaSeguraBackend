@@ -32,6 +32,7 @@ public final class DenunciaMapper {
                 denunciaEntity.getEstadoDenunciaEnum(),
                 denunciaEntity.getCiudadanoId(),
                 denunciaEntity.getOperadorId(),
+                denunciaEntity.getJefeId(),
                 denunciaEntity.getComentarioResolucion(),
                 denunciaEntity.getComentarioObservacion(),
                 evidenciasFinales,

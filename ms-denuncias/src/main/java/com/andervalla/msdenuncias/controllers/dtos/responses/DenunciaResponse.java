@@ -21,6 +21,7 @@ public record DenunciaResponse(
         EstadoDenunciaEnum estadoDenuncia,
         Long ciudadanoId,
         Long operadorId,
+        Long jefeId,
         String comentarioResolucion,
         String comentarioObservacion,
         List<EvidenciaDTO> evidenciaCreacionIds,

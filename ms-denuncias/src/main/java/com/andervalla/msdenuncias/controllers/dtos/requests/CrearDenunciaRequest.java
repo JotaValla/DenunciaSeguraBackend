@@ -15,6 +15,5 @@ public record CrearDenunciaRequest(
         @NotNull Double latitud,
         @NotNull Double longitud,
         @NotNull NivelAnonimatoEnum nivelAnonimato,
-        Long ciudadanoId,
         List<String> evidenciasIds
 ){}

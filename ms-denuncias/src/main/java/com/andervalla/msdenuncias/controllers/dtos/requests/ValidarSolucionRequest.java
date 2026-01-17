@@ -4,6 +4,5 @@ import jakarta.validation.constraints.NotNull;
 
 public record ValidarSolucionRequest (
         @NotNull Boolean aprobada,
-        @NotNull String comentarioObservacion,
-        Long validadoPorId
+        @NotNull String comentarioObservacion
 ){}

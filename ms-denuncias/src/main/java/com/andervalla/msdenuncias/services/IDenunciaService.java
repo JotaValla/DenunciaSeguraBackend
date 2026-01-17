@@ -7,27 +7,24 @@ import com.andervalla.msdenuncias.controllers.dtos.requests.ValidarSolucionReque
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaEstadoHistorialResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaResumenResponse;
-import com.andervalla.msdenuncias.models.DenunciaEntity;
 import com.andervalla.msdenuncias.models.enums.EntidadResponsableEnum;
-
-import java.util.List;
 
 public interface IDenunciaService {
 
-    DenunciaResumenResponse crearDenuncia(CrearDenunciaRequest denunciaReq);
+    DenunciaResumenResponse crearDenuncia(CrearDenunciaRequest denunciaReq, Long actorId);
 
-    DenunciaResponse obtenerDenuncia(Long denunciaId);
+    DenunciaResponse obtenerDenuncia(Long denunciaId, Long actorId, String rol, String entidad);
 
-    void asignarDenunciaOperador(Long denunciaId, AsignarOperadorRequest asignarOperadorADenuncia);
+    void asignarDenunciaOperador(Long denunciaId, AsignarOperadorRequest asignarOperadorADenuncia, Long actorId, String rol, String entidad);
 
-    void asignarDenunciaEntidadResponsableSupervisor(Long denunciaId, EntidadResponsableEnum entidadResponsableEnum);
+    void asignarDenunciaEntidadResponsableSupervisor(Long denunciaId, EntidadResponsableEnum entidadResponsableEnum, Long actorId, String rol);
 
-    void iniciarProcesoDenunciaOperadores(Long denunciaId, Long operadorId);
+    void iniciarProcesoDenunciaOperadores(Long denunciaId, Long actorId);
 
-    void resolverDenunciaOperador(Long denunciaId, MarcarResolucionRequest marcarResolucionDenuncia);
+    void resolverDenunciaOperador(Long denunciaId, MarcarResolucionRequest marcarResolucionDenuncia, Long actorId);
 
-    void validarDenunciaJefe(Long denunciaId, ValidarSolucionRequest validarSolucionDenuncia);
+    void validarDenunciaJefe(Long denunciaId, ValidarSolucionRequest validarSolucionDenuncia, Long actorId, String rol, String entidad);
 
-    DenunciaEstadoHistorialResponse historialDenuncia (Long  denunciaId);
+    DenunciaEstadoHistorialResponse historialDenuncia(Long denunciaId, Long actorId, String rol, String entidad);
 
 }

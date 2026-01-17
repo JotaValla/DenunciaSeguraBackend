@@ -14,4 +14,6 @@ public interface IUsuarioService {
     UsuarioResponse obtenerPorCedula(String cedula);
     UsuarioPublicoResponse obtenerPublico(Long usuarioId);
     AliasResponse actualizarAlias(Long usuarioId, ActualizarAliasRequest request);
+    UsuarioResponse obtenerJefePorEntidad(com.andervalla.msusuarios.models.enums.EntidadEnum entidad);
+    java.util.List<UsuarioResponse> obtenerOperadoresPorEntidad(com.andervalla.msusuarios.models.enums.EntidadEnum entidad);
 }

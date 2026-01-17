@@ -125,6 +125,24 @@ public class UsuarioServiceImpl implements IUsuarioService {
         return new AliasResponse(usuario.getAliasPublico());
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public UsuarioResponse obtenerJefePorEntidad(EntidadEnum entidad) {
+        RolEnum rolJefe = (entidad == EntidadEnum.MUNICIPIO) ? RolEnum.JEFE_OP_INT : RolEnum.JEFE_OP_EXT;
+        UsuarioEntity jefe = usuarioRepository.findFirstByRolAndEntidad(rolJefe, entidad)
+                .orElseThrow(() -> new UsuarioNotFoundException("No existe jefe para la entidad " + entidad));
+        return usuarioMapper.toUsuarioResponse(jefe);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.List<UsuarioResponse> obtenerOperadoresPorEntidad(EntidadEnum entidad) {
+        RolEnum rolOp = (entidad == EntidadEnum.MUNICIPIO) ? RolEnum.OP_INT : RolEnum.OP_EXT;
+        return usuarioRepository.findByRolAndEntidad(rolOp, entidad).stream()
+                .map(usuarioMapper::toUsuarioResponse)
+                .toList();
+    }
+
     private void validarUnicidad(String cedula, String email) {
         if (usuarioRepository.existsByCedula(cedula)) {
             throw new UsuarioConflictException("Cedula ya registrada.");

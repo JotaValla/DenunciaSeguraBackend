@@ -12,4 +12,8 @@ public interface UsuarioRepository extends JpaRepository<UsuarioEntity, Long> {
     boolean existsByCedula(String cedula);
     boolean existsByEmail(String email);
     boolean existsByPublicCitizenId(String publicCitizenId);
+    Optional<UsuarioEntity> findFirstByRolAndEntidad(com.andervalla.msusuarios.models.enums.RolEnum rol,
+                                                     com.andervalla.msusuarios.models.enums.EntidadEnum entidad);
+    java.util.List<UsuarioEntity> findByRolAndEntidad(com.andervalla.msusuarios.models.enums.RolEnum rol,
+                                                       com.andervalla.msusuarios.models.enums.EntidadEnum entidad);
 }

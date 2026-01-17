@@ -69,6 +69,9 @@ public class DenunciaEntity {
     @Column(name = "operador_id")
     private Long operadorId;
 
+    @Column(name = "jefe_id")
+    private Long jefeId;
+
     @Column(name = "comentario_resolucion", columnDefinition = "text")
     private String comentarioResolucion;
 
