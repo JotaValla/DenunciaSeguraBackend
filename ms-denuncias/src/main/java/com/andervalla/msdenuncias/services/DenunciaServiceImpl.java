@@ -9,6 +9,7 @@ import com.andervalla.msdenuncias.controllers.dtos.requests.AsignarOperadorReque
 import com.andervalla.msdenuncias.controllers.dtos.requests.CrearDenunciaRequest;
 import com.andervalla.msdenuncias.controllers.dtos.requests.MarcarResolucionRequest;
 import com.andervalla.msdenuncias.controllers.dtos.requests.ValidarSolucionRequest;
+import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaListadoResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaEstadoHistorialResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaResumenResponse;
@@ -208,6 +209,21 @@ public class DenunciaServiceImpl implements IDenunciaService {
         // Solo jefes con entidad matching o supervisor/admin pueden asignar
         validarAsignador(denunciaEncontrada, rol, entidad);
 
+        // Validar que el operador pertenezca a la misma entidad y rol correcto
+        UsuarioDTO operador = usuariosClient.obtenerUsuarioPorId(asignarOperadorADenuncia.operadorId());
+        if (operador.entidad() == null || !operador.entidad().equalsIgnoreCase(denunciaEncontrada.getEntidadResponsable().name())) {
+            throw new AccessDeniedException("Operador no pertenece a la entidad de la denuncia");
+        }
+        if (denunciaEncontrada.getEntidadResponsable() == EntidadResponsableEnum.MUNICIPIO) {
+            if (!"OP_INT".equalsIgnoreCase(operador.rol())) {
+                throw new AccessDeniedException("Operador debe ser interno (OP_INT) para MUNICIPIO");
+            }
+        } else {
+            if (!"OP_EXT".equalsIgnoreCase(operador.rol())) {
+                throw new AccessDeniedException("Operador debe ser externo (OP_EXT) para la entidad");
+            }
+        }
+
         // 3. Crear el registro de asignacion
         DenunciaAsignacionEntity asignacion = DenunciaAsignacionEntity.builder()
                 .denuncia(denunciaEncontrada)
@@ -394,6 +410,46 @@ public class DenunciaServiceImpl implements IDenunciaService {
         return denunciaMapper.toDenunciaEstadoHistorialResponseDTO(denunciaEncontrada, historialEntities);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<DenunciaListadoResponse> listarDenuncias(Long actorId, String rol, String entidad) {
+        List<DenunciaEntity> denuncias;
+        String rolUpper = rol != null ? rol.toUpperCase() : "";
+        switch (rolUpper) {
+            case "SUPERVISOR":
+            case "ADMIN":
+                denuncias = denunciaRepository.findAll();
+                break;
+            case "JEFE_OP_INT":
+            case "JEFE_OP_EXT":
+                validarEntidadPresente(entidad);
+                denuncias = denunciaRepository.findByEntidadResponsable(EntidadResponsableEnum.valueOf(entidad.toUpperCase()));
+                break;
+            case "OP_INT":
+            case "OP_EXT":
+                denuncias = denunciaRepository.findByOperadorId(actorId);
+                break;
+            case "CIUDADANO":
+                denuncias = denunciaRepository.findByCiudadanoId(actorId);
+                break;
+            default:
+                throw new AccessDeniedException("Rol no autorizado");
+        }
+        return denuncias.stream()
+                .map(d -> new DenunciaListadoResponse(
+                        d.getId(),
+                        d.getTitulo(),
+                        d.getCategoriaDenunciaEnum(),
+                        d.getEntidadResponsable(),
+                        d.getEstadoDenunciaEnum(),
+                        d.getCiudadanoId(),
+                        d.getOperadorId(),
+                        d.getJefeId(),
+                        d.getCreadoEn()
+                ))
+                .toList();
+    }
+
     private void validarAccesoADenuncia(DenunciaEntity denuncia, Long actorId, String rol, String entidad) {
         if (rol == null) {
             throw new AccessDeniedException("Rol no presente en el token");
@@ -459,6 +515,12 @@ public class DenunciaServiceImpl implements IDenunciaService {
         if (denuncia.getEntidadResponsable() == null || entidad == null ||
                 !denuncia.getEntidadResponsable().name().equalsIgnoreCase(entidad)) {
             throw new AccessDeniedException("Denuncia no pertenece a su entidad");
+        }
+    }
+
+    private void validarEntidadPresente(String entidad) {
+        if (entidad == null || entidad.isBlank()) {
+            throw new AccessDeniedException("Entidad no presente en el token");
         }
     }
 

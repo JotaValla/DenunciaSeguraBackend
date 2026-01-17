@@ -4,6 +4,7 @@ import com.andervalla.msdenuncias.controllers.dtos.requests.AsignarOperadorReque
 import com.andervalla.msdenuncias.controllers.dtos.requests.CrearDenunciaRequest;
 import com.andervalla.msdenuncias.controllers.dtos.requests.MarcarResolucionRequest;
 import com.andervalla.msdenuncias.controllers.dtos.requests.ValidarSolucionRequest;
+import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaListadoResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaEstadoHistorialResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaResumenResponse;
@@ -14,6 +15,7 @@ public interface IDenunciaService {
     DenunciaResumenResponse crearDenuncia(CrearDenunciaRequest denunciaReq, Long actorId);
 
     DenunciaResponse obtenerDenuncia(Long denunciaId, Long actorId, String rol, String entidad);
+    java.util.List<DenunciaListadoResponse> listarDenuncias(Long actorId, String rol, String entidad);
 
     void asignarDenunciaOperador(Long denunciaId, AsignarOperadorRequest asignarOperadorADenuncia, Long actorId, String rol, String entidad);
 

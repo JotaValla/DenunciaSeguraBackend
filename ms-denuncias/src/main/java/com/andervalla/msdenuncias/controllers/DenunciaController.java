@@ -4,6 +4,7 @@ import com.andervalla.msdenuncias.controllers.dtos.requests.AsignarOperadorReque
 import com.andervalla.msdenuncias.controllers.dtos.requests.CrearDenunciaRequest;
 import com.andervalla.msdenuncias.controllers.dtos.requests.MarcarResolucionRequest;
 import com.andervalla.msdenuncias.controllers.dtos.requests.ValidarSolucionRequest;
+import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaListadoResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaEstadoHistorialResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaResumenResponse;
@@ -31,6 +32,12 @@ public class DenunciaController {
     public DenunciaResumenResponse crearDenuncia(@Valid @RequestBody CrearDenunciaRequest denunciaRequest,
                                                  JwtAuthenticationToken authentication){
         return denunciaService.crearDenuncia(denunciaRequest, getUsuarioId(authentication));
+    }
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('CIUDADANO','SUPERVISOR','ADMIN','JEFE_OP_INT','JEFE_OP_EXT','OP_INT','OP_EXT')")
+    public java.util.List<DenunciaListadoResponse> listarDenuncias(JwtAuthenticationToken authentication) {
+        return denunciaService.listarDenuncias(getUsuarioId(authentication), getRol(authentication), getEntidad(authentication));
     }
 
     @GetMapping("/{denunciaId}")
