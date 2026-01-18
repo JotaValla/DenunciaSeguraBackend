@@ -1,162 +1,26 @@
 openapi: 3.0.3
 info:
   title: API de Identidad (Auth Service)
-  description: >
-    Gestión de usuarios, autenticación (JWT) y roles para DenunciaSeguraEC.
-    Principio de privacidad: la PII del ciudadano (nombre, cédula, email) no se expone a roles operativos.
-    Los microservicios consumidores deben usar endpoints de perfil público/minimizado para evitar propagación de identidad.
+  description: API de provisioning y recuperación de contraseñas para ms-auth.
   version: 1.0.0
 
 servers:
   - url: /api/v1/auth
-    description: Gateway Auth Path (OAuth2/OIDC)
+    description: Gateway Auth Path
 
 tags:
   - name: Publico
-    description: Accesible sin token.
-  - name: Cuenta
-    description: Gestión de la propia cuenta.
+    description: Endpoints accesibles sin token.
   - name: Admin
-    description: Gestión de usuarios del sistema (Staff).
+    description: Operaciones administrativas (registro de staff).
 
 paths:
-
-  /.well-known/openid-configuration:
-    get:
-      tags:
-        - Publico
-      summary: Descubrimiento OIDC
-      description: Metadatos OIDC del Authorization Server.
-      operationId: oidcDiscovery
-      responses:
-        '200':
-          description: Metadatos OIDC
-
-  /oauth2/authorize:
-    get:
-      tags:
-        - Publico
-      summary: Authorization Endpoint (Auth Code + PKCE)
-      description: Inicia el flujo OAuth2/OIDC Authorization Code con PKCE.
-      operationId: oauthAuthorize
-      parameters:
-        - name: response_type
-          in: query
-          required: true
-          schema: { type: string, example: "code" }
-        - name: client_id
-          in: query
-          required: true
-          schema: { type: string }
-        - name: redirect_uri
-          in: query
-          required: true
-          schema: { type: string }
-        - name: scope
-          in: query
-          required: true
-          schema: { type: string, example: "openid profile" }
-        - name: state
-          in: query
-          required: false
-          schema: { type: string }
-        - name: code_challenge
-          in: query
-          required: true
-          schema: { type: string }
-        - name: code_challenge_method
-          in: query
-          required: true
-          schema: { type: string, example: "S256" }
-      responses:
-        '302':
-          description: Redireccion con authorization code
-
-  /oauth2/token:
-    post:
-      tags:
-        - Publico
-      summary: Token Endpoint
-      description: Intercambia authorization code por tokens o renueva con refresh token.
-      operationId: oauthToken
-      requestBody:
-        required: true
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              type: object
-              properties:
-                grant_type: { type: string, example: "authorization_code" }
-                code: { type: string }
-                redirect_uri: { type: string }
-                client_id: { type: string }
-                code_verifier: { type: string }
-                refresh_token: { type: string }
-      responses:
-        '200':
-          description: Tokens emitidos
-
-  /oauth2/jwks:
-    get:
-      tags:
-        - Publico
-      summary: JWKS
-      description: Llaves publicas para validar JWT.
-      operationId: jwks
-      responses:
-        '200':
-          description: JWKS
-
-  /userinfo:
-    get:
-      tags:
-        - Cuenta
-      summary: UserInfo OIDC
-      description: Perfil del usuario autenticado (PII solo para el propio usuario).
-      operationId: userInfo
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: Datos del usuario
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UsuarioPerfilResponse'
-
-  /oauth2/revoke:
-    post:
-      tags:
-        - Cuenta
-      summary: Revocar token
-      description: Revoca refresh token.
-      operationId: revokeToken
-      requestBody:
-        required: true
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              type: object
-              properties:
-                token: { type: string }
-                token_type_hint: { type: string, example: "refresh_token" }
-      responses:
-        '200':
-          description: Token revocado
-
-  # ------------------------------------------------------------
-  # AUTENTICACIÓN PÚBLICA
-  # ------------------------------------------------------------
   /register/citizen:
     post:
       tags:
         - Publico
       summary: Registro de Ciudadano (Auto-servicio)
-      description: >
-        Crea una cuenta con rol CIUDADANO por defecto.
       operationId: registrarCiudadano
-      parameters:
-        - $ref: '#/components/parameters/XCorrelationId'
       requestBody:
         required: true
         content:
@@ -180,11 +44,7 @@ paths:
       tags:
         - Admin
       summary: Registrar funcionario (Operador, Jefe, Supervisor)
-      description: >
-        Endpoint para registro de staff. Requiere permisos o autenticación adecuada si está protegido.
       operationId: registrarStaff
-      parameters:
-        - $ref: '#/components/parameters/XCorrelationId'
       requestBody:
         required: true
         content:
@@ -203,19 +63,12 @@ paths:
         '409':
           description: Conflicto de datos
 
-  # ----------------------------------------------------------------
-  # RECUPERACIÓN DE CONTRASEÑA
-  # ----------------------------------------------------------------
   /password/forgot:
     post:
       tags:
         - Publico
-      summary: Solicitar recuperación
-      description: >
-        Genera token y lo devuelve (Dev) o envía correo.
+      summary: Solicitar recuperación de contraseña
       operationId: forgot
-      parameters:
-        - $ref: '#/components/parameters/XCorrelationId'
       requestBody:
         required: true
         content:
@@ -224,7 +77,7 @@ paths:
               $ref: '#/components/schemas/PasswordForgotRequest'
       responses:
         '201':
-          description: Token de reseteo generado
+          description: Token de reseteo generado (dev)
           content:
             application/json:
               schema:
@@ -235,10 +88,7 @@ paths:
       tags:
         - Publico
       summary: Establecer nueva contraseña
-      description: Usa el token para cambiar la contraseña.
       operationId: reset
-      parameters:
-        - $ref: '#/components/parameters/XCorrelationId'
       requestBody:
         required: true
         content:
@@ -258,18 +108,7 @@ components:
       scheme: bearer
       bearerFormat: JWT
 
-  parameters:
-    XCorrelationId:
-      name: X-Correlation-Id
-      in: header
-      required: false
-      schema:
-        type: string
-      description: Identificador de trazabilidad distribuida.
-
   schemas:
-    # --- DTOs Java ---
-
     RegistroCiudadanoAuthRequest:
       type: object
       required: [ email, nombre, cedula, password ]
@@ -285,6 +124,7 @@ components:
           type: string
           minLength: 10
           maxLength: 10
+          description: Cedula ecuatoriana (validador custom en código)
         password:
           type: string
           minLength: 8
@@ -292,7 +132,7 @@ components:
 
     RegistroStaffAuthRequest:
       type: object
-      required: [ email, nombre, cedula, rol, entidad, password ]
+      required: [ email, nombre, cedula, rol, entidad ]
       properties:
         email:
           type: string
@@ -305,6 +145,7 @@ components:
           type: string
           minLength: 10
           maxLength: 10
+          description: Cedula ecuatoriana (validador custom en código)
         rol:
           type: string
         entidad:
@@ -356,26 +197,7 @@ components:
           type: string
         token:
           type: string
-          description: Token de reseteo (en dev environment)
-
-    # Esquema para UserInfo basado en Claims personalizados
-    UsuarioPerfilResponse:
-      type: object
-      properties:
-        sub:
-          type: string
-          description: Subject ID (mismo que usuario_id)
-        usuario_id:
-          type: integer
-          format: int64
-        rol:
-          type: string
-        entidad:
-          type: string
-        alias_publico:
-          type: string
-        public_citizen_id:
-          type: string
+          description: Token de reseteo (dev only)
 
     ErrorResponse:
       type: object
