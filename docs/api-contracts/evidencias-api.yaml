@@ -60,7 +60,7 @@ paths:
     get:
       tags: [Interno]
       summary: Listar evidencias por entidad
-      operationId: obtenerEvidenciasPorEntidad
+      operationId: obtenerEvidencias
       security:
         - ApiKeyAuth: []
       parameters:
@@ -87,40 +87,14 @@ paths:
                   $ref: '#/components/schemas/EvidenciaInternaResponse'
         '400':
           description: Solicitud invalida
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: No autorizado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Prohibido
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Evidencia no encontrada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Error interno
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+          description: Entidad no encontrada
 
   /interno/{id}/confirmar:
     post:
       tags: [Interno]
       summary: Confirmar evidencia cargada
-      operationId: confirmarEvidencia
+      operationId: confirmarCarga
       security:
         - ApiKeyAuth: []
       parameters:
@@ -133,30 +107,14 @@ paths:
       responses:
         '200':
           description: Evidencia confirmada
-        '400':
-          description: Solicitud invalida
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Evidencia no encontrada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Error interno
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
 
   /interno/uploads:
     post:
       tags: [Interno]
       summary: Iniciar carga de evidencia
-      operationId: iniciarCarga
+      operationId: crearIntencionDeCarga
       security:
         - ApiKeyAuth: []
       parameters:
@@ -186,16 +144,8 @@ paths:
                 $ref: '#/components/schemas/EvidenciaInternaResponse'
         '400':
           description: Solicitud invalida
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Error interno
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
 
 components:
   securitySchemes:
@@ -224,19 +174,14 @@ components:
         timestamp:
           type: string
           format: date-time
-          example: "2025-12-14T23:45:00Z"
         status:
           type: integer
-          example: 400
         error:
           type: string
-          example: "Bad Request"
         message:
           type: string
-          example: "Solicitud invalida"
         path:
           type: string
-          example: "/api/v1/evidencias/interno/uploads"
 
     EntidadTipoEnum:
       type: string
@@ -255,34 +200,28 @@ components:
         entidadId:
           type: integer
           format: int64
-          example: 101
         evidenciasIds:
           type: array
-          minItems: 1
+          description: Lista de IDs de evidencias. Puede ser vacía pero no nula. Máximo 3.
+          maxItems: 3
           items:
             type: string
-          example: ["ev_9c1a", "ev_9c1b"]
         usuarioId:
           type: integer
           format: int64
-          example: 505
 
     EvidenciaInternaResponse:
       type: object
       properties:
         id:
           type: string
-          example: "ev_9c1a"
         url:
           type: string
-          example: "https://storage.example.com/signed-url"
         contentType:
           type: string
-          example: "image/jpeg"
         sizeBytes:
           type: integer
           format: int64
-          example: 345678
 
 security:
   - BearerAuth: []

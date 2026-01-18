@@ -9,7 +9,7 @@ import java.util.List;
 public record AdjuntarEvidenciaRequest(
         @NotNull EntidadTipoEnum entidadTipo,
         @NotNull Long entidadId,
-        @NotEmpty List<String> evidenciasIds,
+        @NotNull(message = "La lista de evidencias debe estar presente (aunque sea vacía)") @Size(max = 3, message = "No se permiten más de 3 evidencias") List<String> evidenciasIds,
         Long usuarioId
         ) {
 }

@@ -1,0 +1,344 @@
+openapi: 3.0.3
+info:
+  title: Usuarios API
+  version: 1.0.0
+  description: API para el servicio ms-usuarios (generado desde código fuente)
+servers:
+  - url: /
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    RegistroCiudadanoRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 120
+        nombre:
+          type: string
+          maxLength: 160
+        cedula:
+          type: string
+          minLength: 10
+          maxLength: 10
+          description: Cedula ecuatoriana (validador custom en código)
+      required:
+        - email
+        - nombre
+        - cedula
+
+    RegistroStaffRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 120
+        nombre:
+          type: string
+          maxLength: 160
+        cedula:
+          type: string
+          minLength: 10
+          maxLength: 10
+          description: Cedula ecuatoriana (validador custom en código)
+        rol:
+          $ref: '#/components/schemas/RolEnum'
+        entidad:
+          $ref: '#/components/schemas/EntidadEnum'
+        aliasPublico:
+          type: string
+          minLength: 3
+          maxLength: 40
+      required:
+        - email
+        - nombre
+        - cedula
+        - rol
+        - entidad
+
+    ActualizarAliasRequest:
+      type: object
+      properties:
+        aliasPublico:
+          type: string
+          minLength: 3
+          maxLength: 40
+      required:
+        - aliasPublico
+
+    AliasResponse:
+      type: object
+      properties:
+        aliasPublico:
+          type: string
+
+    UsuarioResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        cedula:
+          type: string
+        email:
+          type: string
+          format: email
+        nombre:
+          type: string
+        rol:
+          $ref: '#/components/schemas/RolEnum'
+        entidad:
+          $ref: '#/components/schemas/EntidadEnum'
+        aliasPublico:
+          type: string
+        publicCitizenId:
+          type: string
+        estado:
+          $ref: '#/components/schemas/EstadoUsuarioEnum'
+
+    UsuarioPublicoResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        rol:
+          $ref: '#/components/schemas/RolEnum'
+        entidad:
+          $ref: '#/components/schemas/EntidadEnum'
+        aliasPublico:
+          type: string
+        publicCitizenId:
+          type: string
+
+    RolEnum:
+      type: string
+      enum:
+        - ADMIN
+        - SUPERVISOR
+        - JEFE_OP_INT
+        - JEFE_OP_EXT
+        - OP_INT
+        - OP_EXT
+        - CIUDADANO
+
+    EntidadEnum:
+      type: string
+      enum:
+        - MUNICIPIO
+        - EMPRESA_ELECTRICA
+        - EMPRESA_AGUA_POTABLE
+
+    EstadoUsuarioEnum:
+      type: string
+      enum:
+        - ACTIVO
+        - BLOQUEADO
+
+paths:
+  /usuarios/jefe:
+    get:
+      summary: Obtener jefe por entidad
+      operationId: obtenerJefePorEntidad
+      parameters:
+        - name: entidad
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/EntidadEnum'
+      responses:
+        '200':
+          description: Usuario encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioResponse'
+      security:
+        - bearerAuth: []
+
+  /usuarios/operadores:
+    get:
+      summary: Obtener operadores por entidad
+      operationId: obtenerOperadoresPorEntidad
+      parameters:
+        - name: entidad
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/EntidadEnum'
+      responses:
+        '200':
+          description: Lista de operadores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UsuarioResponse'
+      security:
+        - bearerAuth: []
+
+  /interno/usuarios/ciudadano:
+    post:
+      summary: Crear ciudadano
+      operationId: crearCiudadano
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistroCiudadanoRequest'
+      responses:
+        '201':
+          description: Ciudadano creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioResponse'
+
+  /interno/usuarios/staff:
+    post:
+      summary: Crear staff
+      operationId: crearStaff
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistroStaffRequest'
+      responses:
+        '201':
+          description: Staff creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioResponse'
+
+  /interno/usuarios/{id}:
+    get:
+      summary: Obtener usuario por id
+      operationId: obtenerUsuario
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Usuario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioResponse'
+
+  /interno/usuarios/cedula/{cedula}:
+    get:
+      summary: Obtener usuario por cedula
+      operationId: obtenerPorCedula
+      parameters:
+        - name: cedula
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 10
+            maxLength: 10
+      responses:
+        '200':
+          description: Usuario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioResponse'
+
+  /interno/usuarios/{id}/publico:
+    get:
+      summary: Obtener vista pública de usuario
+      operationId: obtenerPublico
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Usuario público
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioPublicoResponse'
+
+  /interno/usuarios/{id}/alias:
+    patch:
+      summary: Actualizar alias público
+      operationId: actualizarAlias
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActualizarAliasRequest'
+      responses:
+        '200':
+          description: Alias actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AliasResponse'
+
+  /interno/usuarios/jefe:
+    get:
+      summary: Obtener jefe por entidad (interno)
+      operationId: obtenerJefePorEntidad
+      parameters:
+        - name: entidad
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/EntidadEnum'
+      responses:
+        '200':
+          description: Usuario jefe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioResponse'
+
+  /interno/usuarios/operadores:
+    get:
+      summary: Obtener operadores por entidad (interno)
+      operationId: obtenerOperadoresPorEntidad
+      parameters:
+        - name: entidad
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/EntidadEnum'
+      responses:
+        '200':
+          description: Lista de operadores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UsuarioResponse'
