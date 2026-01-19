@@ -14,9 +14,9 @@ import java.util.List;
 public record CrearDenunciaRequest(
         @NotBlank @Size(min = 5, max = 100) String titulo,
         @NotBlank @Size(min = 10, max = 500) String descripcion,
-        @NotBlank CategoriaDenunciaEnum categoriaDenuncia,
-        @NotBlank @DecimalMin("-90.0") @DecimalMax("90.0") Double latitud,
-        @NotBlank @DecimalMin("-180.0") @DecimalMax("180.0") Double longitud,
-        @NotBlank NivelAnonimatoEnum nivelAnonimato,
+        @NotNull CategoriaDenunciaEnum categoriaDenuncia,
+        @NotNull @DecimalMin("-90.0") @DecimalMax("90.0") Double latitud,
+        @NotNull @DecimalMin("-180.0") @DecimalMax("180.0") Double longitud,
+        @NotNull NivelAnonimatoEnum nivelAnonimato,
         @NotNull List<String> evidenciasIds
 ){}

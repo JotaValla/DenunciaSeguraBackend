@@ -3,6 +3,7 @@ package com.andervalla.msdenuncias.controllers;
 import com.andervalla.msdenuncias.controllers.dtos.requests.AsignarOperadorRequest;
 import com.andervalla.msdenuncias.controllers.dtos.requests.CrearDenunciaRequest;
 import com.andervalla.msdenuncias.controllers.dtos.requests.MarcarResolucionRequest;
+import com.andervalla.msdenuncias.controllers.dtos.requests.RechazarDenunciaRequest;
 import com.andervalla.msdenuncias.controllers.dtos.requests.ValidarSolucionRequest;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaListadoResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaEstadoHistorialResponse;
@@ -91,6 +92,15 @@ public class DenunciaController {
             @Valid @RequestBody ValidarSolucionRequest validarSolucionRequest,
             JwtAuthenticationToken authentication){
         denunciaService.validarDenunciaJefe(denunciaId, validarSolucionRequest, getUsuarioId(authentication), getRol(authentication), getEntidad(authentication));
+    }
+
+    @PostMapping("/{denunciaId}/rechazo")
+    @ResponseStatus(HttpStatus.OK)
+    @PreAuthorize("hasAnyRole('SUPERVISOR','ADMIN')")
+    public void rechazarDenuncia(@PathVariable Long denunciaId,
+                                 @Valid @RequestBody RechazarDenunciaRequest request,
+                                 JwtAuthenticationToken authentication) {
+        denunciaService.rechazarDenuncia(denunciaId, request, getUsuarioId(authentication), getRol(authentication));
     }
 
     @GetMapping("/{denunciaId}/historial-estados")

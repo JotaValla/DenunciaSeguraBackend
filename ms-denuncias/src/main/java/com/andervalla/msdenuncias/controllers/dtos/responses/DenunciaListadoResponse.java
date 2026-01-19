@@ -8,14 +8,13 @@ import java.time.Instant;
 
 public record DenunciaListadoResponse(
         Long id,
+        Long jefeId,
+        Long operadorId,
         String titulo,
-        CategoriaDenunciaEnum categoriaDenuncia,
-        //entidad, estado, fecha creacion
+        Long ciudadanoId,
+        Instant creadoEn,
         EntidadResponsableEnum entidadResponsable,
         EstadoDenunciaEnum estadoDenuncia,
-        Long ciudadanoId,
-        Long operadorId,
-        Long jefeId,
-        Instant creadoEn
+        CategoriaDenunciaEnum categoriaDenuncia
 ) {
 }

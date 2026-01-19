@@ -1,7 +1,7 @@
 
 logging:
   loki:
-    url: https://logs-prod-024.grafana.net/loki/api/v1/push
+    url: ${GRAFANA_LOKI_URL}
     user: ${GRAFANA_USER}
     token: ${GRAFANA_TOKEN}
 

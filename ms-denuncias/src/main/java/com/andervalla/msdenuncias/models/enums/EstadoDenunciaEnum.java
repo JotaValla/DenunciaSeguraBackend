@@ -5,5 +5,6 @@ public enum EstadoDenunciaEnum {
     ASIGNADA,
     EN_PROCESO,
     EN_VALIDACION,
-    RESUELTA
+    RESUELTA,
+    RECHAZADA
 }

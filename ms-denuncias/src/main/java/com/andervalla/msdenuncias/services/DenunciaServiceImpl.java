@@ -8,6 +8,7 @@ import com.andervalla.msdenuncias.clients.dtos.UsuarioDTO;
 import com.andervalla.msdenuncias.controllers.dtos.requests.AsignarOperadorRequest;
 import com.andervalla.msdenuncias.controllers.dtos.requests.CrearDenunciaRequest;
 import com.andervalla.msdenuncias.controllers.dtos.requests.MarcarResolucionRequest;
+import com.andervalla.msdenuncias.controllers.dtos.requests.RechazarDenunciaRequest;
 import com.andervalla.msdenuncias.controllers.dtos.requests.ValidarSolucionRequest;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaListadoResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaEstadoHistorialResponse;
@@ -175,6 +176,7 @@ public class DenunciaServiceImpl implements IDenunciaService {
         // 1. Buscar la denuncia
         DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId)
                 .orElseThrow(() -> new DenunciaNotFoundException(denunciaId));
+        validarNoRechazada(denunciaEncontrada);
 
         // 2. Validar que la denuncia NO tenga una entidad responsable asignada
         if (denunciaEncontrada.getEntidadResponsable() != null) {
@@ -200,6 +202,7 @@ public class DenunciaServiceImpl implements IDenunciaService {
         // 1. Buscar la denuncia
         DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId)
                 .orElseThrow(() -> new DenunciaNotFoundException(denunciaId));
+        validarNoRechazada(denunciaEncontrada);
 
         // 2. Validar que la denuncia exista
         if (denunciaEncontrada.getEntidadResponsable() == null) {
@@ -252,6 +255,7 @@ public class DenunciaServiceImpl implements IDenunciaService {
         //1. Buscar la denuncia
         DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId)
                 .orElseThrow(() -> new DenunciaNotFoundException(denunciaId));
+        validarNoRechazada(denunciaEncontrada);
 
         if (denunciaEncontrada.getOperadorId() == null || !denunciaEncontrada.getOperadorId().equals(actorId)) {
             throw new AccessDeniedException("Denuncia no asignada a este operador");
@@ -280,6 +284,7 @@ public class DenunciaServiceImpl implements IDenunciaService {
         //1. Buscar la denuncia
         DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId)
                 .orElseThrow(() -> new DenunciaNotFoundException(denunciaId));
+        validarNoRechazada(denunciaEncontrada);
 
         //2. Validar que la denuncia este en estado EN_PROCESO
         if (denunciaEncontrada.getEstadoDenunciaEnum() != EstadoDenunciaEnum.EN_PROCESO) {
@@ -346,6 +351,7 @@ public class DenunciaServiceImpl implements IDenunciaService {
         //1. Buscar la denuncia
         DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId)
                 .orElseThrow(() -> new DenunciaNotFoundException(denunciaId));
+        validarNoRechazada(denunciaEncontrada);
 
         validarAccesoDeJefe(denunciaEncontrada, rol, entidad);
 
@@ -411,6 +417,34 @@ public class DenunciaServiceImpl implements IDenunciaService {
     }
 
     @Override
+    @Transactional
+    public void rechazarDenuncia(Long denunciaId,
+                                 RechazarDenunciaRequest request,
+                                 Long actorId,
+                                 String rol) {
+        if (rol == null || (!"SUPERVISOR".equalsIgnoreCase(rol) && !"ADMIN".equalsIgnoreCase(rol))) {
+            throw new AccessDeniedException("Solo supervisor o admin puede rechazar denuncias");
+        }
+        DenunciaEntity denunciaEncontrada = denunciaRepository.findById(denunciaId)
+                .orElseThrow(() -> new DenunciaNotFoundException(denunciaId));
+
+        if (denunciaEncontrada.getEstadoDenunciaEnum() == EstadoDenunciaEnum.RESUELTA ||
+                denunciaEncontrada.getEstadoDenunciaEnum() == EstadoDenunciaEnum.RECHAZADA) {
+            throw new AccessDeniedException("Denuncia no puede ser rechazada en estado " + denunciaEncontrada.getEstadoDenunciaEnum());
+        }
+
+        EstadoDenunciaEnum estadoAnterior = denunciaEncontrada.getEstadoDenunciaEnum();
+        denunciaEncontrada.setEstadoDenunciaEnum(EstadoDenunciaEnum.RECHAZADA);
+        denunciaEncontrada.setComentarioObservacion(request.motivo());
+        denunciaEncontrada.setEntidadResponsable(null);
+        denunciaEncontrada.setOperadorId(null);
+        denunciaEncontrada.setJefeId(null);
+
+        registrarCambioEstado(denunciaEncontrada, estadoAnterior, EstadoDenunciaEnum.RECHAZADA, actorId);
+        denunciaRepository.save(denunciaEncontrada);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<DenunciaListadoResponse> listarDenuncias(Long actorId, String rol, String entidad) {
         List<DenunciaEntity> denuncias;
@@ -438,14 +472,14 @@ public class DenunciaServiceImpl implements IDenunciaService {
         return denuncias.stream()
                 .map(d -> new DenunciaListadoResponse(
                         d.getId(),
+                        d.getJefeId(),
+                        d.getOperadorId(),
                         d.getTitulo(),
-                        d.getCategoriaDenunciaEnum(),
+                        d.getCiudadanoId(),
+                        d.getCreadoEn(),
                         d.getEntidadResponsable(),
                         d.getEstadoDenunciaEnum(),
-                        d.getCiudadanoId(),
-                        d.getOperadorId(),
-                        d.getJefeId(),
-                        d.getCreadoEn()
+                        d.getCategoriaDenunciaEnum()
                 ))
                 .toList();
     }
@@ -521,6 +555,12 @@ public class DenunciaServiceImpl implements IDenunciaService {
     private void validarEntidadPresente(String entidad) {
         if (entidad == null || entidad.isBlank()) {
             throw new AccessDeniedException("Entidad no presente en el token");
+        }
+    }
+
+    private void validarNoRechazada(DenunciaEntity denuncia) {
+        if (denuncia.getEstadoDenunciaEnum() == EstadoDenunciaEnum.RECHAZADA) {
+            throw new AccessDeniedException("Denuncia rechazada, no se puede modificar");
         }
     }
 

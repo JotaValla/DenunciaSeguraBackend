@@ -27,6 +27,8 @@ public interface IDenunciaService {
 
     void validarDenunciaJefe(Long denunciaId, ValidarSolucionRequest validarSolucionDenuncia, Long actorId, String rol, String entidad);
 
+    void rechazarDenuncia(Long denunciaId, com.andervalla.msdenuncias.controllers.dtos.requests.RechazarDenunciaRequest request, Long actorId, String rol);
+
     DenunciaEstadoHistorialResponse historialDenuncia(Long denunciaId, Long actorId, String rol, String entidad);
 
 }
