@@ -6,6 +6,12 @@ info:
 servers:
   - url: /
 
+tags:
+  - name: Admin
+    description: Endpoints de administración con roles (SUPERVISOR, ADMIN)
+  - name: Interno
+    description: Endpoints internos del servicio (sin control de rol en código)
+
 components:
   securitySchemes:
     bearerAuth:
@@ -146,8 +152,11 @@ components:
 paths:
   /usuarios/jefe:
     get:
+      tags:
+        - Admin
       summary: Obtener jefe por entidad
-      operationId: obtenerJefePorEntidad
+      description: Requiere roles SUPERVISOR o ADMIN
+      operationId: usuarioAdmin_obtenerJefePorEntidad
       parameters:
         - name: entidad
           in: query
@@ -166,8 +175,11 @@ paths:
 
   /usuarios/operadores:
     get:
+      tags:
+        - Admin
       summary: Obtener operadores por entidad
-      operationId: obtenerOperadoresPorEntidad
+      description: Requiere roles SUPERVISOR o ADMIN
+      operationId: usuarioAdmin_obtenerOperadoresPorEntidad
       parameters:
         - name: entidad
           in: query
@@ -188,6 +200,8 @@ paths:
 
   /interno/usuarios/ciudadano:
     post:
+      tags:
+        - Interno
       summary: Crear ciudadano
       operationId: crearCiudadano
       requestBody:
@@ -206,6 +220,8 @@ paths:
 
   /interno/usuarios/staff:
     post:
+      tags:
+        - Interno
       summary: Crear staff
       operationId: crearStaff
       requestBody:
@@ -224,6 +240,8 @@ paths:
 
   /interno/usuarios/{id}:
     get:
+      tags:
+        - Interno
       summary: Obtener usuario por id
       operationId: obtenerUsuario
       parameters:
@@ -243,6 +261,8 @@ paths:
 
   /interno/usuarios/cedula/{cedula}:
     get:
+      tags:
+        - Interno
       summary: Obtener usuario por cedula
       operationId: obtenerPorCedula
       parameters:
@@ -263,6 +283,8 @@ paths:
 
   /interno/usuarios/{id}/publico:
     get:
+      tags:
+        - Interno
       summary: Obtener vista pública de usuario
       operationId: obtenerPublico
       parameters:
@@ -282,6 +304,8 @@ paths:
 
   /interno/usuarios/{id}/alias:
     patch:
+      tags:
+        - Interno
       summary: Actualizar alias público
       operationId: actualizarAlias
       parameters:
@@ -307,8 +331,10 @@ paths:
 
   /interno/usuarios/jefe:
     get:
+      tags:
+        - Interno
       summary: Obtener jefe por entidad (interno)
-      operationId: obtenerJefePorEntidad
+      operationId: usuarioInterno_obtenerJefePorEntidad
       parameters:
         - name: entidad
           in: query
@@ -325,8 +351,10 @@ paths:
 
   /interno/usuarios/operadores:
     get:
+      tags:
+        - Interno
       summary: Obtener operadores por entidad (interno)
-      operationId: obtenerOperadoresPorEntidad
+      operationId: usuarioInterno_obtenerOperadoresPorEntidad
       parameters:
         - name: entidad
           in: query
