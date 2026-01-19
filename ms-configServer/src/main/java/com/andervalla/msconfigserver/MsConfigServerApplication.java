@@ -9,6 +9,7 @@ import org.springframework.cloud.config.server.EnableConfigServer;
 public class MsConfigServerApplication {
 
     public static void main(String[] args) {
+        System.out.println("GRAFANA_AUTH = " + System.getenv("GRAFANA_AUTH"));
         SpringApplication.run(MsConfigServerApplication.class, args);
     }
 

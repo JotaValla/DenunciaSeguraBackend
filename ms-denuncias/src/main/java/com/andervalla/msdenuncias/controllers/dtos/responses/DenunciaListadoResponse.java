@@ -10,6 +10,7 @@ public record DenunciaListadoResponse(
         Long id,
         String titulo,
         CategoriaDenunciaEnum categoriaDenuncia,
+        //entidad, estado, fecha creacion
         EntidadResponsableEnum entidadResponsable,
         EstadoDenunciaEnum estadoDenuncia,
         Long ciudadanoId,
