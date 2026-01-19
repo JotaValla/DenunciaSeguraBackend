@@ -198,6 +198,30 @@ paths:
         '200':
           description: Validacion procesada
 
+  /{denunciaId}/rechazo:
+    post:
+      tags:
+        - Workflow
+      summary: Rechazar denuncia
+      operationId: rechazarDenuncia
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - name: denunciaId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RechazarDenunciaRequest'
+      responses:
+        '200':
+          description: Denuncia rechazada
+
   /{denunciaId}/historial-estados:
     get:
       tags:
@@ -248,7 +272,7 @@ components:
 
     EstadoDenunciaEnum:
       type: string
-      enum: [RECIBIDA, ASIGNADA, EN_PROCESO, EN_VALIDACION, RESUELTA]
+      enum: [RECIBIDA, ASIGNADA, EN_PROCESO, EN_VALIDACION, RESUELTA, RECHAZADA]
 
     NivelAnonimatoEnum:
       type: string
@@ -257,7 +281,7 @@ components:
     # --- DTOs REQUESTS ---
     CrearDenunciaRequest:
       type: object
-      required: [titulo, descripcion, categoriaDenuncia, latitud, longitud, nivelAnonimato]
+      required: [titulo, descripcion, categoriaDenuncia, latitud, longitud, nivelAnonimato, evidenciasIds]
       properties:
         titulo:
           type: string
@@ -294,6 +318,14 @@ components:
           type: integer
           format: int64
           description: Must be positive
+
+    RechazarDenunciaRequest:
+      type: object
+      required: [motivo]
+      properties:
+        motivo:
+          type: string
+          minLength: 1
 
     MarcarResolucionRequest:
       type: object
