@@ -11,6 +11,8 @@ tags:
     description: Endpoints de administración con roles (SUPERVISOR, ADMIN)
   - name: Interno
     description: Endpoints internos del servicio (sin control de rol en código)
+  - name: Perfil
+    description: Endpoints para gestión del perfil del usuario logueado
 
 components:
   securitySchemes:
@@ -195,6 +197,23 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/UsuarioResponse'
+      security:
+        - bearerAuth: []
+
+  /usuarios/me:
+    get:
+      tags:
+        - Perfil
+      summary: Obtener perfil del usuario autenticado
+      description: Retorna la información del usuario autenticado basado en el token JWT.
+      operationId: obtenerPerfil
+      responses:
+        '200':
+          description: Perfil del usuario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioResponse'
       security:
         - bearerAuth: []
 
