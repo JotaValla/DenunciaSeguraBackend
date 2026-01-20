@@ -12,5 +12,4 @@ public class MsConfigServerApplication {
         System.out.println("GRAFANA_AUTH = " + System.getenv("GRAFANA_AUTH"));
         SpringApplication.run(MsConfigServerApplication.class, args);
     }
-
 }
