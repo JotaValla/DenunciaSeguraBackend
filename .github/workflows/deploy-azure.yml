@@ -55,7 +55,7 @@ jobs:
           context: ./${{ matrix.service }}
           file: ./${{ matrix.service }}/Dockerfile
           push: true
-          tags: ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ matrix.service }}:${{ github.sha }}
+          tags: ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ matrix.service | lower }}:${{ github.sha }}
 
       # 5. Desplegar a Azure Container Apps
       - name: Deploy to Azure Container Apps
@@ -63,7 +63,7 @@ jobs:
         with:
           containerAppName: ${{ matrix.service }}
           resourceGroup: rg-denuncia-segura-v2
-          imageToDeploy: ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ matrix.service }}:${{ github.sha }}
+          imageToDeploy: ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ matrix.service | lower }}:${{ github.sha }}
           
           # 👇 ESTAS SON LAS LÍNEAS QUE FALTABAN PARA ARREGLAR EL ERROR 👇
           registryUrl: ${{ secrets.REGISTRY_LOGIN_SERVER }}
