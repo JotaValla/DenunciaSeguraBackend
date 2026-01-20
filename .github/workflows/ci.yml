@@ -24,7 +24,6 @@ jobs:
           distribution: temurin
           java-version: "25"
           cache: maven
-          
 
       - name: Cache SonarCloud packages
         uses: actions/cache@v4
@@ -33,18 +32,19 @@ jobs:
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
 
-      - name: Build
-        run: mvn -B -DskipTests verify
+      # 1) Build completo SIEMPRE (push/PR/manual)
+      - name: Build (reactor completo)
+        run: mvn -B -DskipTests clean verify
 
+      # 2) Sonar SOLO en push (sin re-ejecutar verify)
       - name: SonarCloud
         if: ${{ github.event_name == 'push' }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
         run: |
-          mvn -B -DskipTests \
-            -Dsonar.login=${SONAR_TOKEN} \
-            -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-            -Dsonar.host.url=https://sonarcloud.io \
-            -Dsonar.coverage.exclusions=**/* \
-            org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
+          mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar ^
+            -Dsonar.login=${SONAR_TOKEN} ^
+            -Dsonar.projectKey=${SONAR_PROJECT_KEY} ^
+            -Dsonar.host.url=https://sonarcloud.io ^
+            -Dsonar.coverage.exclusions=**/*
