@@ -23,6 +23,7 @@ jobs:
           distribution: temurin
           java-version: "25"
           cache: maven
+          
 
       - name: Cache SonarCloud packages
         uses: actions/cache@v4
