@@ -19,14 +19,10 @@ import com.andervalla.msusuarios.services.mappers.UsuarioMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.SecureRandom;
 import java.util.Locale;
 
 @Service
 public class UsuarioServiceImpl implements IUsuarioService {
-
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
-    private static final String PUBLIC_CITIZEN_PREFIX = "cit_";
 
     private final UsuarioRepository usuarioRepository;
     private final UsuarioMapper usuarioMapper;
@@ -41,8 +37,6 @@ public class UsuarioServiceImpl implements IUsuarioService {
     public UsuarioResponse crearCiudadano(RegistroCiudadanoRequest request) {
         validarUnicidad(request.cedula(), request.email());
 
-        String publicCitizenId = generarPublicCitizenId();
-
         UsuarioEntity usuario = UsuarioEntity.builder()
                 .cedula(request.cedula())
                 .email(request.email().toLowerCase(Locale.ROOT))
@@ -50,7 +44,6 @@ public class UsuarioServiceImpl implements IUsuarioService {
                 .rol(RolEnum.CIUDADANO)
                 .entidad(null)
                 .aliasPublico(null)
-                .publicCitizenId(publicCitizenId)
                 .estado(EstadoUsuarioEnum.ACTIVO)
                 .build();
 
@@ -68,7 +61,6 @@ public class UsuarioServiceImpl implements IUsuarioService {
         }
 
         validarEntidadRol(request.rol(), request.entidad());
-        validarAliasSiAplica(request.aliasPublico(), request);
 
         UsuarioEntity usuario = UsuarioEntity.builder()
                 .cedula(request.cedula())
@@ -76,8 +68,7 @@ public class UsuarioServiceImpl implements IUsuarioService {
                 .nombre(request.nombre())
                 .rol(request.rol())
                 .entidad(request.entidad())
-                .aliasPublico(request.aliasPublico())
-                .publicCitizenId(null)
+                .aliasPublico(null)
                 .estado(EstadoUsuarioEnum.ACTIVO)
                 .build();
 
@@ -115,8 +106,8 @@ public class UsuarioServiceImpl implements IUsuarioService {
         UsuarioEntity usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new UsuarioNotFoundException(usuarioId));
 
-        if (usuario.getRol() == RolEnum.CIUDADANO) {
-            throw new RolEntidadInvalidaException("Alias publico no aplica para ciudadanos.");
+        if (usuario.getRol() != RolEnum.CIUDADANO) {
+            throw new RolEntidadInvalidaException("Alias publico solo aplica para ciudadanos.");
         }
 
         validarAliasUsuario(request.aliasPublico(), usuario);
@@ -168,13 +159,6 @@ public class UsuarioServiceImpl implements IUsuarioService {
         }
     }
 
-    private void validarAliasSiAplica(String aliasPublico, RegistroStaffRequest request) {
-        if (aliasPublico == null || aliasPublico.isBlank()) {
-            return;
-        }
-        validarAliasContenido(aliasPublico, request.cedula(), request.email());
-    }
-
     private void validarAliasUsuario(String aliasPublico, UsuarioEntity usuario) {
         validarAliasContenido(aliasPublico, usuario.getCedula(), usuario.getEmail());
     }
@@ -189,23 +173,6 @@ public class UsuarioServiceImpl implements IUsuarioService {
         if (email != null && !email.isBlank() && aliasPublico.contains(email)) {
             throw new AliasPublicoInvalidoException("Alias no debe contener email.");
         }
-    }
-
-    private String generarPublicCitizenId() {
-        String id;
-        do {
-            id = PUBLIC_CITIZEN_PREFIX + randomAlphaNumeric(10);
-        } while (usuarioRepository.existsByPublicCitizenId(id));
-        return id;
-    }
-
-    private String randomAlphaNumeric(int length) {
-        String alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
-        StringBuilder builder = new StringBuilder(length);
-        for (int i = 0; i < length; i++) {
-            builder.append(alphabet.charAt(SECURE_RANDOM.nextInt(alphabet.length())));
-        }
-        return builder.toString();
     }
 
 }

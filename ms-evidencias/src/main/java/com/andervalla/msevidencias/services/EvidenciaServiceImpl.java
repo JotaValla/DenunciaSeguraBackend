@@ -52,6 +52,10 @@ public class EvidenciaServiceImpl implements IEvidenciaService{
             // Vincular
             ev.setEntidadId(request.entidadId());
             ev.setTipoEntidad(request.entidadTipo());
+            // Si el caller envía usuarioId (centinela 0L para pseudo), lo aplicamos para evitar rastrear al real
+            if (request.usuarioId() != null) {
+                ev.setUsuarioCreadorId(request.usuarioId());
+            }
         }
         evidenciaRepository.saveAll(evidencias);
     }

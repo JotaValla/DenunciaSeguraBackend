@@ -33,8 +33,7 @@ import java.time.Instant;
         name = "usuarios",
         uniqueConstraints = {
                 @UniqueConstraint(name = "uk_usuarios_cedula", columnNames = "cedula"),
-                @UniqueConstraint(name = "uk_usuarios_email", columnNames = "email"),
-                @UniqueConstraint(name = "uk_usuarios_public_citizen_id", columnNames = "public_citizen_id")
+                @UniqueConstraint(name = "uk_usuarios_email", columnNames = "email")
         },
         indexes = {
                 @Index(name = "idx_usuarios_rol", columnList = "rol"),
@@ -66,9 +65,6 @@ public class UsuarioEntity {
 
     @Column(name = "alias_publico", length = 80)
     private String aliasPublico;
-
-    @Column(name = "public_citizen_id", length = 40)
-    private String publicCitizenId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)

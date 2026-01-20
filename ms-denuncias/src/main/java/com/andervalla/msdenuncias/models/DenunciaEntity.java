@@ -10,7 +10,6 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -65,6 +64,12 @@ public class DenunciaEntity {
 
     @Column(name = "ciudadano_id")
     private Long ciudadanoId;
+
+    @Column(name = "hash_identidad", length = 128)
+    private String hashIdentidad;
+
+    @Column(name = "alias_pseudo", length = 120)
+    private String aliasPseudo;
 
     @Column(name = "operador_id")
     private Long operadorId;

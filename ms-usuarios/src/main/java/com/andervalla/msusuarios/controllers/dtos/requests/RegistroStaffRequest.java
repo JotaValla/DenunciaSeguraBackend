@@ -23,8 +23,6 @@ public record RegistroStaffRequest(
         @NotNull
         RolEnum rol,
         @NotNull
-        EntidadEnum entidad,
-        @Size(min = 3, max = 40)
-        String aliasPublico
+        EntidadEnum entidad
 ) {
 }

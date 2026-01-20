@@ -17,7 +17,6 @@ public class UsuarioMapper {
                 usuario.getRol(),
                 usuario.getEntidad(),
                 usuario.getAliasPublico(),
-                usuario.getPublicCitizenId(),
                 usuario.getEstado()
         );
     }
@@ -27,8 +26,7 @@ public class UsuarioMapper {
                 usuario.getId(),
                 usuario.getRol(),
                 usuario.getEntidad(),
-                usuario.getAliasPublico(),
-                usuario.getPublicCitizenId()
+                usuario.getAliasPublico()
         );
     }
 }

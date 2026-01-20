@@ -12,7 +12,6 @@ public record UsuarioResponse(
         RolEnum rol,
         EntidadEnum entidad,
         String aliasPublico,
-        String publicCitizenId,
         EstadoUsuarioEnum estado
 ) {
 }

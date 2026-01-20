@@ -10,6 +10,7 @@ import java.util.List;
 @Repository
 public interface DenunciaRepository extends JpaRepository<DenunciaEntity, Long> {
     List<DenunciaEntity> findByCiudadanoId(Long ciudadanoId);
+    List<DenunciaEntity> findByHashIdentidad(String hashIdentidad);
     List<DenunciaEntity> findByOperadorId(Long operadorId);
     List<DenunciaEntity> findByEntidadResponsable(EntidadResponsableEnum entidadResponsable);
 }

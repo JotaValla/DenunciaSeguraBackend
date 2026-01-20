@@ -14,6 +14,7 @@ import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaListadoResp
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaEstadoHistorialResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaResponse;
 import com.andervalla.msdenuncias.controllers.dtos.responses.DenunciaResumenResponse;
+import com.andervalla.msdenuncias.exceptions.AliasPseudoRequeridoException;
 import com.andervalla.msdenuncias.exceptions.ComentarioObservacionRequeridoException;
 import com.andervalla.msdenuncias.exceptions.DenunciaEstadoInvalidoException;
 import com.andervalla.msdenuncias.exceptions.DenunciaNotFoundException;
@@ -28,15 +29,23 @@ import com.andervalla.msdenuncias.models.DenunciaResolucionEntity;
 import com.andervalla.msdenuncias.models.DenunciaValidacionEntity;
 import com.andervalla.msdenuncias.models.enums.EntidadResponsableEnum;
 import com.andervalla.msdenuncias.models.enums.EstadoDenunciaEnum;
+import com.andervalla.msdenuncias.models.enums.NivelAnonimatoEnum;
 import com.andervalla.msdenuncias.repositories.*;
 import com.andervalla.msdenuncias.services.mappers.DenunciaMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.HexFormat;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 
 @Slf4j
 @Service
@@ -51,6 +60,7 @@ public class DenunciaServiceImpl implements IDenunciaService {
 
     private final EvidenciasClient evidenciasClient;
     private final UsuariosClient usuariosClient;
+    private final String anonymitySecret;
 
     public DenunciaServiceImpl(
             DenunciaRepository denunciaRepository,
@@ -60,7 +70,8 @@ public class DenunciaServiceImpl implements IDenunciaService {
             DenunciaValidacionRepository denunciaValidacionRepository,
             DenunciaMapper denunciaMapper,
             EvidenciasClient evidenciasClient,
-            UsuariosClient usuariosClient
+            UsuariosClient usuariosClient,
+            @Value("${app.security.anonymity-secret}") String anonymitySecret
     ) {
         this.denunciaRepository = denunciaRepository;
         this.denunciaEstadoHistorialRepository = denunciaEstadoHistorialRepository;
@@ -70,6 +81,7 @@ public class DenunciaServiceImpl implements IDenunciaService {
         this.denunciaMapper = denunciaMapper;
         this.evidenciasClient = evidenciasClient;
         this.usuariosClient = usuariosClient;
+        this.anonymitySecret = anonymitySecret;
     }
 
     @Override
@@ -94,34 +106,47 @@ public class DenunciaServiceImpl implements IDenunciaService {
             evidenciasString = String.join(",", denunciaReq.evidenciasIds());
         }
 
-        //2. Crear la denuncia
-        DenunciaEntity denunciaEntity = DenunciaEntity.builder()
+        //2. Crear la denuncia con lógica por nivel de anonimato
+        NivelAnonimatoEnum nivelAnonimato = denunciaReq.nivelAnonimato();
+        DenunciaEntity.DenunciaEntityBuilder builder = DenunciaEntity.builder()
                 .titulo(denunciaReq.titulo())
                 .descripcion(denunciaReq.descripcion())
                 .categoriaDenunciaEnum(denunciaReq.categoriaDenuncia())
                 .latitud(denunciaReq.latitud())
                 .longitud(denunciaReq.longitud())
                 .evidenciasIds(evidenciasString)
-                .nivelAnonimatoEnum(denunciaReq.nivelAnonimato())
-                .ciudadanoId(actorId)
+                .nivelAnonimatoEnum(nivelAnonimato)
                 .jefeId(jefeId)
                 .entidadResponsable(entRespAsignada)
-                .estadoDenunciaEnum(EstadoDenunciaEnum.RECIBIDA)
-                .build();
+                .estadoDenunciaEnum(EstadoDenunciaEnum.RECIBIDA);
+
+        switch (nivelAnonimato) {
+            case REAL -> builder
+                    .ciudadanoId(actorId)
+                    .hashIdentidad(null)
+                    .aliasPseudo(null);
+            case PSEUDOANONIMO -> builder
+                    .ciudadanoId(null)
+                    .hashIdentidad(generarHashIdentidad(actorId))
+                    .aliasPseudo(obtenerAliasSnapshot(actorId));
+            default -> throw new IllegalArgumentException("Nivel de anonimato no soportado: " + nivelAnonimato);
+        }
 
         //3. Guardar la denuncia
-        DenunciaEntity denunciaGuardada = denunciaRepository.save(denunciaEntity);
+        DenunciaEntity denunciaGuardada = denunciaRepository.save(builder.build());
 
         //4. Registrar el cambio de estado
-        registrarCambioEstado(denunciaGuardada, null, denunciaGuardada.getEstadoDenunciaEnum(), denunciaGuardada.getCiudadanoId());
+        Long actorParaHistorial = (nivelAnonimato == NivelAnonimatoEnum.PSEUDOANONIMO) ? 0L : actorId;
+        registrarCambioEstado(denunciaGuardada, null, denunciaGuardada.getEstadoDenunciaEnum(), actorParaHistorial);
 
         //5. Vincular las evidencias a la denuncia en el microservicio externo
+        Long usuarioParaEvidencia = (nivelAnonimato == NivelAnonimatoEnum.PSEUDOANONIMO) ? 0L : actorId;
         try {
             evidenciasClient.adjuntarEvidencias(AdjuntarEvidenciaRequest.builder()
                     .entidadTipo("DENUNCIA")
                     .entidadId(denunciaGuardada.getId())
                     .evidenciasIds(denunciaReq.evidenciasIds())
-                    .usuarioId(actorId)
+                    .usuarioId(usuarioParaEvidencia)
                     .build()
             );
         } catch (Exception e) {
@@ -464,7 +489,12 @@ public class DenunciaServiceImpl implements IDenunciaService {
                 denuncias = denunciaRepository.findByOperadorId(actorId);
                 break;
             case "CIUDADANO":
-                denuncias = denunciaRepository.findByCiudadanoId(actorId);
+                String hashIdentidad = generarHashIdentidad(actorId);
+                denuncias = java.util.stream.Stream.concat(
+                                denunciaRepository.findByCiudadanoId(actorId).stream(),
+                                denunciaRepository.findByHashIdentidad(hashIdentidad).stream())
+                        .distinct()
+                        .toList();
                 break;
             default:
                 throw new AccessDeniedException("Rol no autorizado");
@@ -494,8 +524,17 @@ public class DenunciaServiceImpl implements IDenunciaService {
             case "ADMIN":
                 return;
             case "CIUDADANO":
-                if (!actorId.equals(denuncia.getCiudadanoId())) {
-                    throw new AccessDeniedException("Denuncia no pertenece al ciudadano autenticado");
+                if (denuncia.getNivelAnonimatoEnum() == NivelAnonimatoEnum.REAL) {
+                    if (!actorId.equals(denuncia.getCiudadanoId())) {
+                        throw new AccessDeniedException("Denuncia no pertenece al ciudadano autenticado");
+                    }
+                } else if (denuncia.getNivelAnonimatoEnum() == NivelAnonimatoEnum.PSEUDOANONIMO) {
+                    String hashActor = generarHashIdentidad(actorId);
+                    if (denuncia.getHashIdentidad() == null || !denuncia.getHashIdentidad().equals(hashActor)) {
+                        throw new AccessDeniedException("Denuncia no pertenece al ciudadano autenticado");
+                    }
+                } else {
+                    throw new AccessDeniedException("Nivel de anonimato no permitido");
                 }
                 return;
             case "JEFE_OP_INT":
@@ -568,13 +607,42 @@ public class DenunciaServiceImpl implements IDenunciaService {
                                        EstadoDenunciaEnum anterior,
                                        EstadoDenunciaEnum nuevo,
                                        Long actorId) {
+        Long actor = actorId != null ? actorId : 0L; // 0L actúa como centinela para preservar privacidad en pseudo
         DenunciaEstadoHistorialEntity historialDenuncia = new DenunciaEstadoHistorialEntity();
         historialDenuncia.setDenuncia(d);
         historialDenuncia.setEstadoAnterior(anterior);
         historialDenuncia.setEstadoAtual(nuevo);
-        historialDenuncia.setActorId(actorId);
+        historialDenuncia.setActorId(actor);
         historialDenuncia.setOcurridoEn(Instant.now());
         denunciaEstadoHistorialRepository.save(historialDenuncia);
+    }
+
+    private String generarHashIdentidad(Long actorId) {
+        if (actorId == null) {
+            throw new IllegalArgumentException("actorId es requerido para generar hash de identidad");
+        }
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(anonymitySecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            byte[] resultado = mac.doFinal((actorId + anonymitySecret).getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(resultado);
+        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+            throw new IllegalStateException("No se pudo generar hash de identidad", e);
+        }
+    }
+
+    private String obtenerAliasSnapshot(Long actorId) {
+        try {
+            UsuarioDTO usuario = usuariosClient.obtenerUsuarioPorId(actorId);
+            if (usuario != null && usuario.aliasPublico() != null && !usuario.aliasPublico().isBlank()) {
+                return usuario.aliasPublico();
+            } else {
+                throw new AliasPseudoRequeridoException();
+            }
+        } catch (Exception e) {
+            log.warn("No se pudo obtener alias publico del usuario {}", actorId, e);
+            throw new AliasPseudoRequeridoException();
+        }
     }
 
     private EntidadResponsableEnum determinarEntidadPorCategoria(CrearDenunciaRequest denunciaReq) {

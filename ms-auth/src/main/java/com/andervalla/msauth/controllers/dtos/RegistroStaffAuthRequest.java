@@ -22,8 +22,6 @@ public record RegistroStaffAuthRequest(
         String rol,
         @NotNull
         String entidad,
-        @Size(min = 3, max = 40)
-        String aliasPublico,
         @Size(min = 8, max = 120)
         String password
 ) {

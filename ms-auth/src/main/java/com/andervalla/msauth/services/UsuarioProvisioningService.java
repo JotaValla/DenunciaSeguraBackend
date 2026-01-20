@@ -49,8 +49,7 @@ public class UsuarioProvisioningService {
                 request.nombre(),
                 request.cedula(),
                 request.rol(),
-                request.entidad(),
-                request.aliasPublico()
+                request.entidad()
         ));
 
         String password = Optional.ofNullable(request.password()).filter(p -> !p.isBlank()).orElse("Temp#12345");

@@ -18,8 +18,6 @@ spring:
               uri: lb://ms-usuarios
               predicates:
                 - Path=/usuarios/**,/interno/usuarios/**
-              filters:
-                - StripPrefix=1
 
             - id: ms-denuncias
               uri: lb://ms-denuncias

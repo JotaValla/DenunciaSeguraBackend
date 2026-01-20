@@ -5,7 +5,6 @@ public record RegistroStaffRequest(
         String nombre,
         String cedula,
         String rol,
-        String entidad,
-        String aliasPublico
+        String entidad
 ) {
 }

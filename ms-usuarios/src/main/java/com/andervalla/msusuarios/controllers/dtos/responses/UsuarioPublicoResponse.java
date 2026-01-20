@@ -7,7 +7,6 @@ public record UsuarioPublicoResponse(
         Long id,
         RolEnum rol,
         EntidadEnum entidad,
-        String aliasPublico,
-        String publicCitizenId
+        String aliasPublico
 ) {
 }
