@@ -1,6 +1,6 @@
 {
   "name": "@jotavalla/denunciasegura-openapi",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "OpenAPI contracts for DenunciaSegura (backend).",
   "private": false,
   "license": "UNLICENSED",
