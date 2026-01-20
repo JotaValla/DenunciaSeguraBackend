@@ -15,11 +15,9 @@ permissions:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    # La estrategia va al principio del trabajo
     strategy:
       fail-fast: false
       matrix:
-        # Lista de tus carpetas de microservicios
         service: [ms-configServer, ms-eureka, ms-auth, ms-usuarios, ms-evidencias, ms-denuncias, gateway]
 
     steps:
@@ -32,7 +30,7 @@ jobs:
           java-version: '25'
           cache: 'maven'
 
-      # 1. Compilamos el proyecto (se repetirá por seguridad en cada matriz)
+      # 1. Compilar todo el proyecto
       - name: Build with Maven
         run: mvn -B -DskipTests clean package
 
@@ -50,7 +48,7 @@ jobs:
           username: ${{ secrets.REGISTRY_USERNAME }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
-      # 4. Construir y Subir Imagen (Usa el Dockerfile que creaste en la carpeta)
+      # 4. Construir y Subir Imagen
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
@@ -64,6 +62,10 @@ jobs:
         uses: azure/container-apps-deploy-action@v1
         with:
           containerAppName: ${{ matrix.service }}
-          # ¡OJO! Aquí usamos la versión V2 que creamos con éxito
           resourceGroup: rg-denuncia-segura-v2
           imageToDeploy: ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ matrix.service }}:${{ github.sha }}
+          
+          # 👇 ESTAS SON LAS LÍNEAS QUE FALTABAN PARA ARREGLAR EL ERROR 👇
+          registryUrl: ${{ secrets.REGISTRY_LOGIN_SERVER }}
+          registryUsername: ${{ secrets.REGISTRY_USERNAME }}
+          registryPassword: ${{ secrets.REGISTRY_PASSWORD }}
