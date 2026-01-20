@@ -27,7 +27,8 @@ jobs:
         id: vars
         shell: bash
         run: |
-          echo "service_lc=${{ matrix.service }}" | tr '[:upper:]' '[:lower:]' | awk '{print "service_lc=" $1}' >> "$GITHUB_OUTPUT"
+          service_lc="$(echo "${{ matrix.service }}" | tr '[:upper:]' '[:lower:]')"
+          echo "service_lc=$service_lc" >> "$GITHUB_OUTPUT"
       
       - name: Set up JDK 25
         uses: actions/setup-java@v4
