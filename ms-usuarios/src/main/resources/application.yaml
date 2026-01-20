@@ -1,4 +1,4 @@
-# Configuración de la aplicación ms-usuarios
+# ConfiguraciÃ³n de la aplicaciÃ³n ms-usuarios
 spring:
   application:
     name: ms-usuarios
