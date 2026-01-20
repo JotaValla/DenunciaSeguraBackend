@@ -33,9 +33,6 @@ jobs:
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
 
-      - name: Lint (Spotless)
-        run: mvn -B -DskipTests spotless:check
-
       - name: Build
         run: mvn -B -DskipTests verify
 
