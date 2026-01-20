@@ -22,6 +22,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Normalize service name
+        id: vars
+        shell: bash
+        run: |
+          echo "service_lc=${{ matrix.service }}" | tr '[:upper:]' '[:lower:]' | awk '{print "service_lc=" $1}' >> "$GITHUB_OUTPUT"
       
       - name: Set up JDK 25
         uses: actions/setup-java@v4
@@ -55,15 +61,15 @@ jobs:
           context: ./${{ matrix.service }}
           file: ./${{ matrix.service }}/Dockerfile
           push: true
-          tags: ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ lower(matrix.service) }}:${{ github.sha }}
+          tags: ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ steps.vars.outputs.service_lc }}:${{ github.sha }}
 
       # 5. Desplegar a Azure Container Apps
       - name: Deploy to Azure Container Apps
         uses: azure/container-apps-deploy-action@v1
         with:
-          containerAppName: ${{ matrix.service }}
+          containerAppName: ${{ steps.vars.outputs.service_lc }}
           resourceGroup: rg-denuncia-segura-v2
-          imageToDeploy: ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ lower(matrix.service) }}:${{ github.sha }}
+          imageToDeploy: ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ steps.vars.outputs.service_lc }}:${{ github.sha }}
           
           # 👇 ESTAS SON LAS LÍNEAS QUE FALTABAN PARA ARREGLAR EL ERROR 👇
           registryUrl: ${{ secrets.REGISTRY_LOGIN_SERVER }}
