@@ -3,6 +3,12 @@ spring:
     name: ms-denuncias
   config:
     import: optional:configserver:http://localhost:8888
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Le decimos dónde están las llaves públicas en la red interna de Azure
+          jwk-set-uri: http://ms-auth:8080/oauth2/jwks
 
 eureka:
   client:
@@ -12,12 +18,6 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
 
-security:
-    oauth2:
-      resourceserver:
-        jwt:
-          # Conexión interna a ms-auth
-          jwk-set-uri: http://ms-auth:8080/oauth2/jwks
 
 management:
   otlp:
