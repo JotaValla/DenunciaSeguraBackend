@@ -13,7 +13,6 @@ spring:
 eureka:
   instance:
     prefer-ip-address: false
-    hostname: ${HOSTNAME}
   client:
     register-with-eureka: false
     fetch-registry: false
