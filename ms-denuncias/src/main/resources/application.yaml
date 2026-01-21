@@ -12,13 +12,6 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
 
-security:
-    oauth2:
-      resourceserver:
-        jwt:
-          # Conexión interna a ms-auth
-          jwk-set-uri: http://ms-auth:8080/oauth2/jwks
-
 management:
   otlp:
     metrics:
