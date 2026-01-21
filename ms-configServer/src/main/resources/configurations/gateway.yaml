@@ -37,7 +37,7 @@ spring:
           issuer-uri: http://ms-auth
 
 server:
-  port: 8081
+  port: 8080
 
 eureka:
   instance:
