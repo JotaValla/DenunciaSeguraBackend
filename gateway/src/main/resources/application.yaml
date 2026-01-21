@@ -2,8 +2,8 @@ spring:
   application:
     name: gateway
   config:
-    # IMPORTANTE: "optional:" evita que explote si tarda en conectar
-    import: "optional:configserver:http://ms-configserver:8888"
+    # Quitamos el puerto :8888
+    import: "optional:configserver:http://ms-configserver"
   cloud:
     gateway:
       discovery:
@@ -13,7 +13,7 @@ spring:
       globalcors:
         cors-configurations:
           '[/**]':
-            allowedOrigins: "*"  # O pon aquí la URL de tu frontend
+            allowedOrigins: "*"
             allowedMethods:
             - GET
             - POST
@@ -24,11 +24,11 @@ spring:
 eureka:
   client:
     serviceUrl:
-      defaultZone: "http://ms-eureka:8761/eureka/"
+      # Quitamos el puerto :8761
+      defaultZone: "http://ms-eureka/eureka/"
     register-with-eureka: true
     fetch-registry: true
 
-# Desactivamos métricas para evitar ruido en los logs
 management:
   otlp:
     metrics:
