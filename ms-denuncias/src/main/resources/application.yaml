@@ -3,3 +3,20 @@ spring:
     name: ms-denuncias
   config:
     import: optional:configserver:http://localhost:8888
+
+eureka:
+  client:
+    serviceUrl:
+      # FORZAMOS la dirección de Eureka en la nube
+      defaultZone: "http://ms-eureka:8761/eureka/"
+    register-with-eureka: true
+    fetch-registry: true
+
+management:
+  otlp:
+    metrics:
+      export:
+        enabled: false
+    tracing:
+      export:
+        enabled: false
