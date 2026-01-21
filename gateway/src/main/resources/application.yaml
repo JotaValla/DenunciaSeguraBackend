@@ -1,26 +1,24 @@
-# Configuración del gateway (solo import al config-server)
 spring:
   application:
     name: gateway
   config:
+    # IMPORTANTE: "optional:" evita que explote si tarda en conectar
     import: "optional:configserver:http://ms-configserver:8888"
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
 
 eureka:
   client:
     serviceUrl:
-      # Conexión directa a Eureka interno
       defaultZone: "http://ms-eureka:8761/eureka/"
     register-with-eureka: true
     fetch-registry: true
 
-spring:
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          # Usa el nombre del servicio 'ms-auth' o una variable
-          issuer-uri: ${AUTH_SERVER_URI:http://localhost:9092}
-
+# Desactivamos métricas para evitar ruido en los logs
 management:
   otlp:
     metrics:
