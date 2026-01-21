@@ -6,7 +6,8 @@ spring:
     import: "optional:configserver:${SPRING_CLOUD_CONFIG_URI:http://localhost:8888}"
 
 eureka:
-  client:
-    serviceUrl:
-      # IMPORTANTE: Usa variable de entorno en Azure, o localhost por defecto.
-      defaultZone: ${EUREKA_URI:http://localhost:8761/eureka}
+  instance:
+    prefer-ip-address: false
+    hostname: ms-auth.internal.wittyriver-e5cd2ef5.eastus.azurecontainerapps.io
+    non-secure-port: 80
+    non-secure-port-enabled: true
