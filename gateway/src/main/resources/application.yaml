@@ -20,6 +20,13 @@ spring:
             - PUT
             - DELETE
             - OPTIONS
+            - PATCH
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # CORRECCIÓN 1: Apuntamos al contenedor ms-auth interno
+          issuer-uri: http://ms-auth
 
 eureka:
   client:
