@@ -46,7 +46,7 @@ eureka:
     non-secure-port-enabled: true
   client:
     service-url:
-      defaultZone: ${EUREKA_URI:http://localhost:8761/eureka/}
+      defaultZone: http://ms-eureka.internal.wittyriver-e5cd2ef5.eastus.azurecontainerapps.io/eureka
     register-with-eureka: true
 
 app:
