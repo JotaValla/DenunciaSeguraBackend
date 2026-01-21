@@ -20,3 +20,13 @@ logging:
     org.springframework.security.oauth2: DEBUG
     org.springframework.security.web: DEBUG
     org.springframework.security.oauth2.server.authorization: DEBUG
+
+
+management:
+  otlp:
+    metrics:
+      export:
+        enabled: false  # <--- Esto apaga el error
+    tracing:
+      export:
+        enabled: false  # <--- Esto también
