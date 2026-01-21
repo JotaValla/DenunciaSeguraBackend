@@ -33,15 +33,18 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:9092
+          # CORRECCIÓN 1: Apuntamos al contenedor ms-auth interno
+          issuer-uri: http://ms-auth
 
 server:
   port: 8081
 
 eureka:
   instance:
-    hostname: localhost
+    # CORRECCIÓN 2: Importante en la nube. Usa la IP interna del contenedor.
+    prefer-ip-address: true
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      # CORRECCIÓN 3: Apuntamos a http://ms-eureka (Puerto 80 implícito para Azure Ingress)
+      defaultZone: http://ms-eureka/eureka/
     register-with-eureka: true
