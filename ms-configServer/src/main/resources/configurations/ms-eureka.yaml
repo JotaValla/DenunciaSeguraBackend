@@ -1,15 +1,10 @@
-# Server port
-server:
-  port: 8761
-
-# Application name
 spring:
   application:
     name: ms-eureka
-  config:
-    import: "optional:configserver:${SPRING_CLOUD_CONFIG_URI:http://localhost:8888}"
 
-# Eureka server configuration
+server:
+  port: 8761
+
 eureka:
   instance:
     prefer-ip-address: false

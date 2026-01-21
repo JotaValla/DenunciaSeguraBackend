@@ -14,22 +14,20 @@ spring:
           starttls:
             enable: true
 
-  # Configuración de la base de datos PostgreSQL
   datasource:
     driver-class-name: org.postgresql.Driver
-    username: ${DB_USER:postgres.your-id-on-supabase}
-    password: ${DB_PASSWORD:your-password-on-supabase}
-    url: ${DB_URL:jdbc:postgresql://aws-0-us-west-2.pooler.supabase.com:5432/postgres}
+    username: ${DB_USER:}
+    password: ${DB_PASSWORD:}
+    url: ${DB_URL:}
     hikari:
       maximum-pool-size: 5
       minimum-idle: 2
       max-lifetime: 60000
 
-  # Configuración de JPA y Hibernate
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
@@ -37,18 +35,17 @@ spring:
     database: postgresql
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 
-
-# Configuración del servidor y Eureka
 server:
   port: 9092
+
 eureka:
   instance:
-    hostname: localhost
+    prefer-ip-address: false
+    hostname: ${HOSTNAME}
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: ${EUREKA_URI:http://localhost:8761/eureka/}
     register-with-eureka: true
-
 
 app:
   security:
