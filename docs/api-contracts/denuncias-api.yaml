@@ -353,6 +353,17 @@ components:
           maxLength: 500
 
     # --- DTOs RESPONSES ---
+    Reporter:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        nombre:
+          type: string
+        alias:
+          type: string
+
     EvidenciaDTO:
       type: object
       properties:
@@ -405,6 +416,12 @@ components:
         jefeId:
           type: integer
           format: int64
+        ciudadano:
+          $ref: '#/components/schemas/Reporter'
+        operador:
+          $ref: '#/components/schemas/Reporter'
+        jefe:
+          $ref: '#/components/schemas/Reporter'
         comentarioResolucion:
           type: string
         comentarioObservacion:
