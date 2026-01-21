@@ -44,4 +44,4 @@ eureka:
 
 app:
   security:
-    anonymity-secret: ${ANONYMITY_SECRET:}
+    anonymity-secret: ${ANONYMITY_SECRET}
