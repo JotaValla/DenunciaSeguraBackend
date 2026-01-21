@@ -7,18 +7,18 @@ spring:
 
 
 eureka:
-  instance:
-    hostname: localhost
   client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka/
+    serviceUrl:
+      # Conexión directa a Eureka interno
+      defaultZone: "http://ms-eureka:8761/eureka/"
     register-with-eureka: true
+    fetch-registry: true
 
-logging:
-  level:
-    root: INFO
-    org.springframework.cloud.gateway: DEBUG
-    org.springframework.web: DEBUG
-    org.springframework.cloud.gateway.server.mvc: DEBUG
-    org.springframework.web.servlet.function: DEBUG
-
+management:
+  otlp:
+    metrics:
+      export:
+        enabled: false
+    tracing:
+      export:
+        enabled: false
