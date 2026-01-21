@@ -41,6 +41,8 @@ server:
 eureka:
   instance:
     prefer-ip-address: false
+    hostname: ms-auth.internal.wittyriver-e5cd2ef5.eastus.azurecontainerapps.io
+    non-secure-port: 80
   client:
     service-url:
       defaultZone: ${EUREKA_URI:http://localhost:8761/eureka/}
