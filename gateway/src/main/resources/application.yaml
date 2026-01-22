@@ -1,18 +1,43 @@
-# Configuración del gateway (solo import al config-server)
+# Configuración del gateway
 spring:
   application:
     name: gateway
-  config:
-    import: optional:configserver:http://localhost:8888
 
+  cloud:
+    gateway:
+      server:
+        webmvc:
+          routes:
+            - id: ms-auth
+              uri: ${URI_MS_AUTH:http://localhost:9092}
+              predicates:
+                - Path=/auth/**
+              filters:
+                - StripPrefix=1
 
-eureka:
-  instance:
-    hostname: localhost
-  client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka/
-    register-with-eureka: true
+            - id: ms-usuarios
+              uri: ${URI_MS_USUARIOS:http://localhost:9091}
+              predicates:
+                - Path=/usuarios/**,/interno/usuarios/**
+
+            - id: ms-denuncias
+              uri: ${URI_MS_DENUNCIAS:http://localhost:8083}
+              predicates:
+                - Path=/api/denuncias/**
+
+            - id: ms-evidencias
+              uri: ${URI_MS_EVIDENCIAS:http://localhost:8090}
+              predicates:
+                - Path=/interno/adjuntar/**,/interno/entidades/**,/interno/uploads/**,/interno/*/confirmar
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:9092
+
+server:
+  port: 8081
 
 logging:
   level:
