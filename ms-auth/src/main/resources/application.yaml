@@ -38,7 +38,13 @@ spring:
 
 server:
   port: 9092
-  forward-headers-strategy: native
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      cookie:
+        path: /
+        secure: true
+        same-site: Lax
 
 logging:
   level:
@@ -49,7 +55,7 @@ logging:
 
 app:
   security:
-    issuer: ${APP_SECURITY_ISSUER:http://localhost:9092}
+    issuer: ${APP_SECURITY_ISSUER:https://gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
     client:
       id: ${APP_SECURITY_CLIENT_ID:ds-web}
       redirect-uris: ${APP_SECURITY_CLIENT_REDIRECT_URIS:http://localhost:4200/dashboard,https://oauth.pstmn.io/v1/callback,https://denuncia-segura-frontend.vercel.app/dashboard}
