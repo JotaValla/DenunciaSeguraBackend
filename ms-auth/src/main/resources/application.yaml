@@ -38,7 +38,7 @@ spring:
 
 server:
   port: 9092
-  forward-headers-strategy: framework
+  forward-headers-strategy: native
 
 logging:
   level:
@@ -49,10 +49,10 @@ logging:
 
 app:
   security:
-    issuer: http://localhost:9092
+    issuer: ${APP_SECURITY_ISSUER:http://localhost:9092}
     client:
-      id: ds-web
-      redirect-uris: http://localhost:4200/dashboard,https://oauth.pstmn.io/v1/callback,https://denuncia-segura-frontend.vercel.app/dashboard
+      id: ${APP_SECURITY_CLIENT_ID:ds-web}
+      redirect-uris: ${APP_SECURITY_CLIENT_REDIRECT_URIS:http://localhost:4200/dashboard,https://oauth.pstmn.io/v1/callback,https://denuncia-segura-frontend.vercel.app/dashboard}
     reset-url: http://localhost:5173/reset-password?token=
 
 ms-usuarios:
