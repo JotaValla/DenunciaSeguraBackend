@@ -38,8 +38,11 @@ import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
+import org.springframework.security.web.savedrequest.RequestCache;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -152,8 +155,14 @@ public class AuthSecurityConfig {
     @Bean
     @Order(2)
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
+        RequestCache requestCache = new HttpSessionRequestCache();
+        SavedRequestAwareAuthenticationSuccessHandler successHandler = new SavedRequestAwareAuthenticationSuccessHandler();
+        successHandler.setRequestCache(requestCache);
+
         http.authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
-                .formLogin(Customizer.withDefaults())
+                .requestCache(cache -> cache.requestCache(requestCache))
+                .formLogin(form -> form
+                        .successHandler(successHandler))
                 // El login se usa solo para el flujo OAuth2; evitamos fallos de CSRF con navegadores/proxies intermedios.
                 .csrf(csrf -> csrf.ignoringRequestMatchers("/login"));
         return http.build();
