@@ -8,20 +8,10 @@ spring:
       server:
         webmvc:
           routes:
-            - id: ms-auth-api
+            - id: ms-auth
               uri: ${URI_MS_AUTH:http://localhost:9092}
               predicates:
-                - Path=/auth/**, /api/auth/**
-
-            - id: ms-auth-login
-              uri: ${URI_MS_AUTH:http://localhost:9092}
-              predicates:
-                - Path=/login/**
-
-            - id: ms-auth-oauth2
-              uri: ${URI_MS_AUTH:http://localhost:9092}
-              predicates:
-                - Path=/oauth2/**
+                - Path=/auth/**
               filters:
                 - StripPrefix=1
 
@@ -44,7 +34,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:9092
+          issuer-uri: ${ISSUER_URI:http://localhost:9092}
 
 server:
   port: 8081
@@ -56,4 +46,3 @@ logging:
     org.springframework.web: DEBUG
     org.springframework.cloud.gateway.server.mvc: DEBUG
     org.springframework.web.servlet.function: DEBUG
-

@@ -17,7 +17,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:9092
+          issuer-uri: ${ISSUER_URI:http://localhost:9092}
 
   jpa:
     hibernate:
