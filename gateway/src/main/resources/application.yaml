@@ -8,10 +8,20 @@ spring:
       server:
         webmvc:
           routes:
-            - id: ms-auth
+            - id: ms-auth-api
               uri: ${URI_MS_AUTH:http://localhost:9092}
               predicates:
-                - Path=/auth/**
+                - Path=/auth/**, /api/auth/**
+
+            - id: ms-auth-login
+              uri: ${URI_MS_AUTH:http://localhost:9092}
+              predicates:
+                - Path=/login/**
+
+            - id: ms-auth-oauth2
+              uri: ${URI_MS_AUTH:http://localhost:9092}
+              predicates:
+                - Path=/oauth2/**
               filters:
                 - StripPrefix=1
 
