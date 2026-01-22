@@ -37,6 +37,7 @@ spring:
 
 server:
   port: 9092
+  forward-headers-strategy: framework
 
 logging:
   level:
