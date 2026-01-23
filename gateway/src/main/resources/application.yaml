@@ -15,7 +15,7 @@ spring:
               predicates:
                 - Path=/oauth2/**,/login/**,/\\.well-known/**
               filters:
-                - SetRequestHeader=Host, ${GATEWAY_HOST:gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
+                - AddRequestHeader=Forwarded, proto=${FORWARDED_PROTO:https};host=${GATEWAY_HOST:gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
                 - AddRequestHeader=X-Forwarded-Proto, ${FORWARDED_PROTO:https}
                 - AddRequestHeader=X-Forwarded-Host, ${GATEWAY_HOST:gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
                 - AddRequestHeader=X-Forwarded-Port, ${FORWARDED_PORT:443}
@@ -26,7 +26,7 @@ spring:
                 - Path=/auth/oauth2/**,/auth/login/**,/auth/.well-known/**,/auth/actuator/**
               filters:
                 - StripPrefix=1
-                - SetRequestHeader=Host, ${GATEWAY_HOST:gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
+                - AddRequestHeader=Forwarded, proto=${FORWARDED_PROTO:https};host=${GATEWAY_HOST:gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
                 - AddRequestHeader=X-Forwarded-Proto, ${FORWARDED_PROTO:https}
                 - AddRequestHeader=X-Forwarded-Host, ${GATEWAY_HOST:gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
                 - AddRequestHeader=X-Forwarded-Port, ${FORWARDED_PORT:443}
