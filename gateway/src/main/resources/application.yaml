@@ -20,7 +20,6 @@ spring:
                 - AddRequestHeader=X-Forwarded-Proto, ${FORWARDED_PROTO:https}
                 - AddRequestHeader=X-Forwarded-Host, ${GATEWAY_HOST:gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
                 - AddRequestHeader=X-Forwarded-Port, ${FORWARDED_PORT:443}
-                - RewriteLocationResponseHeader=Location, ${URI_MS_AUTH:http://localhost:9092}, https://${GATEWAY_HOST:gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
 
             - id: auth-oauth2
               uri: ${URI_MS_AUTH:http://localhost:9092}
@@ -34,7 +33,6 @@ spring:
                 - AddRequestHeader=X-Forwarded-Host, ${GATEWAY_HOST:gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
                 - AddRequestHeader=X-Forwarded-Port, ${FORWARDED_PORT:443}
                 - AddRequestHeader=X-Forwarded-Prefix, /auth
-                - RewriteLocationResponseHeader=Location, ${URI_MS_AUTH:http://localhost:9092}, https://${GATEWAY_HOST:gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}/auth
 
             - id: ms-usuarios
               uri: ${URI_MS_USUARIOS:http://localhost:9091}

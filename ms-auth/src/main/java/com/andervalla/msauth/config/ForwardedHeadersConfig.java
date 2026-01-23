@@ -9,8 +9,6 @@ public class ForwardedHeadersConfig {
 
     @Bean
     public ForwardedHeaderFilter forwardedHeaderFilter() {
-        ForwardedHeaderFilter filter = new ForwardedHeaderFilter();
-        filter.setRemoveOnly(false);
-        return filter;
+        return new ForwardedHeaderFilter();
     }
 }
