@@ -42,6 +42,7 @@ server:
   servlet:
     session:
       cookie:
+        name: MSAUTHSESSION
         path: /
         secure: true
         same-site: Lax
@@ -51,14 +52,15 @@ logging:
     org.springframework.security: DEBUG
     org.springframework.security.oauth2: DEBUG
     org.springframework.security.web: DEBUG
-    org.springframework.security.oauth2.server.authorization: DEBUG
+    org.springframework.security.oauth2.server.authorization: TRACE
+    org.springframework.security.web.FilterChainProxy: DEBUG
 
 app:
   security:
     issuer: ${APP_SECURITY_ISSUER:https://gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
     client:
       id: ${APP_SECURITY_CLIENT_ID:ds-web}
-      redirect-uris: ${APP_SECURITY_CLIENT_REDIRECT_URIS:http://localhost:4200/dashboard,https://oauth.pstmn.io/v1/callback,https://denuncia-segura-frontend.vercel.app/dashboard}
+      redirect-uris: ${APP_SECURITY_CLIENT_REDIRECT_URIS:http://localhost:4200/dashboard,https://oauth.pstmn.io/v1/callback,https://denuncia-segura-frontend.vercel.app/dashboard, http://localhost:8081/auth/callback}
     reset-url: http://localhost:5173/reset-password?token=
 
 ms-usuarios:

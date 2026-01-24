@@ -37,12 +37,20 @@ import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
-import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
-import org.springframework.security.web.savedrequest.RequestCache;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.logout.LogoutFilter;
+import org.springframework.web.filter.OncePerRequestFilter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+import java.io.IOException;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -112,6 +120,11 @@ public class AuthSecurityConfig {
     }
 
     @Bean
+    public SessionLoggingFilter sessionLoggingFilter() {
+        return new SessionLoggingFilter();
+    }
+
+    @Bean
     public JwtDecoder jwtDecoder(JWKSource<SecurityContext> jwkSource) {
         return OAuth2AuthorizationServerConfiguration.jwtDecoder(jwkSource);
     }
@@ -137,34 +150,33 @@ public class AuthSecurityConfig {
 
     @Bean
     @Order(1)
-    public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http, SessionLoggingFilter sessionLoggingFilter) throws Exception {
         OAuth2AuthorizationServerConfigurer authorizationServerConfigurer =
                 new OAuth2AuthorizationServerConfigurer();
 
         http.securityMatcher(authorizationServerConfigurer.getEndpointsMatcher())
                 .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
+                .sessionManagement(session -> session.sessionFixation().none())
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")))
                 .csrf(csrf -> csrf.ignoringRequestMatchers(authorizationServerConfigurer.getEndpointsMatcher()))
                 .with(authorizationServerConfigurer, authServer -> authServer.oidc(Customizer.withDefaults()))
                 // Habilita validación de tokens Bearer (userinfo, introspection, etc.)
-                .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()));
+                .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
+                .addFilterBefore(sessionLoggingFilter, LogoutFilter.class);
         return http.build();
     }
 
     @Bean
     @Order(2)
-    public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
-        RequestCache requestCache = new HttpSessionRequestCache();
-        SavedRequestAwareAuthenticationSuccessHandler successHandler = new SavedRequestAwareAuthenticationSuccessHandler();
-        successHandler.setRequestCache(requestCache);
+    public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http, SessionLoggingFilter sessionLoggingFilter) throws Exception {
 
         http.authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
-                .requestCache(cache -> cache.requestCache(requestCache))
-                .formLogin(form -> form
-                        .successHandler(successHandler))
+                .sessionManagement(session -> session.sessionFixation().none())
+                .formLogin(Customizer.withDefaults())
                 // El login se usa solo para el flujo OAuth2; evitamos fallos de CSRF con navegadores/proxies intermedios.
-                .csrf(csrf -> csrf.ignoringRequestMatchers("/login"));
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/login"))
+                .addFilterBefore(sessionLoggingFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 
@@ -229,6 +241,37 @@ public class AuthSecurityConfig {
                     .build();
         } catch (Exception e) {
             throw new IllegalStateException("Failed to generate RSA key", e);
+        }
+    }
+
+    private static class SessionLoggingFilter extends OncePerRequestFilter {
+        private static final Logger log = LoggerFactory.getLogger(SessionLoggingFilter.class);
+
+        @Override
+        protected boolean shouldNotFilter(HttpServletRequest request) {
+            String uri = request.getRequestURI();
+            return !(uri.startsWith("/oauth2/authorize") || uri.startsWith("/login") || uri.startsWith("/error"));
+        }
+
+        @Override
+        protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+                throws ServletException, IOException {
+            HttpSession session = request.getSession(false);
+            String cookies = request.getHeader("Cookie");
+            log.info("SessionLoggingFilter[req] uri={} query={} sessionId={} cookies={}",
+                    request.getRequestURI(),
+                    request.getQueryString(),
+                    session != null ? session.getId() : "none",
+                    cookies != null ? cookies : "none");
+            filterChain.doFilter(request, response);
+            HttpSession sessionAfter = request.getSession(false);
+            var setCookies = response.getHeaders("Set-Cookie");
+            if (setCookies != null && !setCookies.isEmpty()) {
+                log.info("SessionLoggingFilter[res] uri={} sessionId={} set-cookie={}",
+                        request.getRequestURI(),
+                        sessionAfter != null ? sessionAfter.getId() : "none",
+                        setCookies);
+            }
         }
     }
 }
