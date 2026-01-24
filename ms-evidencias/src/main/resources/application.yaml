@@ -28,6 +28,7 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: ${ISSUER_URI:http://localhost:9092}
+          audiences: ds-web
 
 app:
   supabase:
