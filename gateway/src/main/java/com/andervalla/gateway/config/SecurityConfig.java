@@ -32,7 +32,7 @@ public class SecurityConfig {
 
     /**
      * Define las reglas de autorización (rutas públicas vs protegidas), habilita CORS
-     * y configura el gateway como recurso protegido con JWT en modo stateless.
+     * y configura el gateway como recurso protegido con JWT en modo stateless
      */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
