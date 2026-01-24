@@ -4,80 +4,62 @@ import java.util.Arrays;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-// @Configuration
-// public class SecurityConfig {
-
-//     @Bean
-//     public SecurityFilterChain securityFilterChain(HttpSecurity http, GatewayLoggingFilter gatewayLoggingFilter) throws Exception {
-//         http.authorizeHttpRequests(auth -> auth
-//                         .requestMatchers("/actuator/health").permitAll()
-//                         .requestMatchers("/auth/**").permitAll()
-//                         .requestMatchers("/oauth2/**").permitAll()
-//                         .requestMatchers("/login/**").permitAll()
-//                         .anyRequest().authenticated()
-//                 )
-//                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-//                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
-//                 .csrf(AbstractHttpConfigurer::disable)
-//                 .addFilterBefore(gatewayLoggingFilter, UsernamePasswordAuthenticationFilter.class);
-//         return http.build();
-//     }
-
-//     @Bean
-//     public GatewayLoggingFilter gatewayLoggingFilter() {
-//         return new GatewayLoggingFilter();
-//     }
-// }
-
+/**
+ * Configura la seguridad del gateway: expone rutas públicas de autenticación y
+ * salud, exige JWT para el resto, desactiva CSRF en un entorno stateless y define
+ * CORS para los orígenes permitidos.
+ */
 @Configuration
+@EnableConfigurationProperties(CorsProperties.class)
 public class SecurityConfig {
 
+    private final CorsProperties corsProperties;
+
+    public SecurityConfig(CorsProperties corsProperties) {
+        this.corsProperties = corsProperties;
+    }
+
+    /**
+     * Define las reglas de autorización (rutas públicas vs protegidas), habilita CORS
+     * y configura el gateway como recurso protegido con JWT en modo stateless.
+     */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, GatewayLoggingFilter gatewayLoggingFilter)
-            throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // 1. AÑADIR ESTA LÍNEA AQUÍ: Habilitar CORS usando la configuración definida
-                // abajo
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/auth/**").permitAll()
-                        .requestMatchers("/oauth2/**").permitAll()
-                        .requestMatchers("/login/**").permitAll()
                         // Agrega OPTIONS por si acaso el navegador manda preflight checks
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
-                .csrf(AbstractHttpConfigurer::disable)
-                .addFilterBefore(gatewayLoggingFilter, UsernamePasswordAuthenticationFilter.class);
+                .csrf(AbstractHttpConfigurer::disable);
         return http.build();
     }
 
-    // 2. AÑADIR ESTE BEAN AL FINAL DE LA CLASE
+    /**
+     * Configuración CORS: orígenes, métodos y cabeceras permitidas para llamadas
+     * desde navegadores.
+     */
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // IMPORTANTE: Pon aquí tu URL de Azure EXACTA (sin la 'h' extra que corregimos
-        // antes)
-        // También deja localhost para cuando pruebes en local
-        configuration.setAllowedOrigins(Arrays.asList(
-                "https://gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io",
-                "https://denuncia-segura-frontend.vercel.app",
-                "http://localhost:4200"));
+        configuration.setAllowedOrigins(corsProperties.getAllowedOrigins());
 
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept",
@@ -87,10 +69,5 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
-    }
-
-    @Bean
-    public GatewayLoggingFilter gatewayLoggingFilter() {
-        return new GatewayLoggingFilter();
     }
 }

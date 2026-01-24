@@ -8,8 +8,10 @@ import org.springframework.web.filter.ForwardedHeaderFilter;
 public class ForwardedHeadersConfig {
 
     /**
-     * Trust X-Forwarded-* headers injected by Azure Container Apps / ingress so
-     * downstream apps (like ms-auth) build redirects with the public host.
+     * Activa un filtro que lee las cabeceras {@code X-Forwarded-*} añadidas por
+     * balanceadores o proxies para reconstruir el host, puerto y protocolo que el
+     * cliente usó realmente. Así, el gateway genera redirecciones y enlaces con la
+     * URL pública correcta y no con direcciones internas.
      */
     @Bean
     public ForwardedHeaderFilter forwardedHeaderFilter() {

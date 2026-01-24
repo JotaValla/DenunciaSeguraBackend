@@ -1,32 +1,21 @@
-# 
 app:
   cors:
     allowed-origins:
       - "http://localhost:4200"
-      - "https://denuncia-segura-frontend.vercel.app/"
-# Configuración del gateway
+      - "https://denuncia-segura-frontend.vercel.app"
+      - "https://gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io"
+
 spring:
   application:
     name: gateway
 
+  # Rutas del gateway hacia los microservicios y el ms-auth (flujo OAuth2/login).
   cloud:
     gateway:
       server:
         webmvc:
           routes:
-            # Passthrough de todo el flujo OAuth2/login al ms-auth (se elimina login propio del gateway)
-            # Variante sin prefijo (/oauth2/**, /login/**) por si el cliente no usa /auth
-            - id: auth-oauth2-root
-              uri: ${URI_MS_AUTH:http://localhost:9092}
-              predicates:
-                - Path=/oauth2/**,/login/**,/\\.well-known/**
-              filters:
-                - SetRequestHeader=Host, ${GATEWAY_HOST:gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
-                - AddRequestHeader=Forwarded, proto=${FORWARDED_PROTO:https};host=${GATEWAY_HOST:gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
-                - AddRequestHeader=X-Forwarded-Proto, ${FORWARDED_PROTO:https}
-                - AddRequestHeader=X-Forwarded-Host, ${GATEWAY_HOST:gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
-                - AddRequestHeader=X-Forwarded-Port, ${FORWARDED_PORT:443}
-
+            # Flujo OAuth2/login con prefijo /auth (se quita con StripPrefix).
             - id: auth-oauth2
               uri: ${URI_MS_AUTH:http://localhost:9092}
               predicates:
