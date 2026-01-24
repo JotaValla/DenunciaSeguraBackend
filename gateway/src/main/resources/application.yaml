@@ -38,6 +38,8 @@ spring:
               uri: ${URI_MS_DENUNCIAS:http://localhost:8083}
               predicates:
                 - Path=/api/denuncias/**
+              filters:
+                - RewritePath=/api/denuncias/?(?<segment>.*)/$, /api/denuncias/${segment}
 
             - id: ms-evidencias
               uri: ${URI_MS_EVIDENCIAS:http://localhost:8090}

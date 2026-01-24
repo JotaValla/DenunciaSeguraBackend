@@ -27,7 +27,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${ISSUER_URI:http://localhost:9092}
+          issuer-uri: ${ISSUER_URI:https://gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io/auth}
           audiences: ds-web
 
 app:
