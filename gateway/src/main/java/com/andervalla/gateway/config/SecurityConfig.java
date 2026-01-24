@@ -76,6 +76,7 @@ public class SecurityConfig {
         // También deja localhost para cuando pruebes en local
         configuration.setAllowedOrigins(Arrays.asList(
                 "https://gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io",
+                "https://denuncia-segura-frontend.vercel.app",
                 "http://localhost:4200"));
 
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
