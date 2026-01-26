@@ -63,7 +63,8 @@ server:
 logging:
   level:
     root: INFO
-    org.springframework.cloud.gateway: DEBUG
-    org.springframework.web: DEBUG
-    org.springframework.cloud.gateway.server.mvc: DEBUG
-    org.springframework.web.servlet.function: DEBUG
+    ACCESS: INFO
+    org.springframework.cloud.gateway: INFO
+    org.springframework.cloud.gateway.server.mvc: INFO
+    org.springframework.web: INFO
+    org.springframework.web.servlet.function: INFO
