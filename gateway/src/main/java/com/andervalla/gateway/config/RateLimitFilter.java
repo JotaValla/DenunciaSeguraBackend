@@ -2,11 +2,15 @@ package com.andervalla.gateway.config;
 
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
+import io.github.bucket4j.ConsumptionProbe;
 import io.github.bucket4j.Refill;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -18,25 +22,27 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Edge rate limiting filter (20 requests per minute per client IP) implemented in the Gateway.
+ * Filtro de limitación de tasa (rate limiting) en el borde del Gateway (20 solicitudes por minuto por IP).
  * <p>
- * <strong>Security purpose:</strong> blocks abusive traffic patterns (burst requests, brute force, scraping)
- * as early as possible, returning HTTP 429 without invoking downstream services.
+ * <strong>Propósito de seguridad:</strong> mitiga patrones de tráfico abusivo (ráfagas, fuerza bruta, scraping)
+ * lo más temprano posible, devolviendo HTTP 429 sin invocar servicios aguas abajo.
  * <p>
- * <strong>Cost-saving purpose (Azure):</strong> by rejecting excess requests at the Gateway layer, this avoids
- * spending CPU, threads, and network on microservices. That reduces the probability of autoscaling events and
- * helps keep compute usage (and therefore cost) minimal.
+ * <strong>Propósito de ahorro de costes (Azure):</strong> al rechazar exceso de solicitudes en la capa de Gateway,
+ * se evita consumir CPU, hilos y red en los microservicios. Esto reduce la probabilidad de escalado automático
+ * innecesario y ayuda a mantener el consumo de cómputo (y por tanto el coste) al mínimo.
  * <p>
- * Operational note: health probes and CORS preflight requests are excluded to avoid accidental self-denial of
- * service (e.g., platform health checks being rate-limited).
+ * Nota operativa: se excluyen probes de salud y solicitudes CORS de tipo preflight para evitar auto-bloqueos
+ * accidentales (por ejemplo, que los health checks de la plataforma queden limitados).
  * <p>
- * Note: this Gateway module uses Spring Cloud Gateway <em>Server WebMVC</em> (Servlet stack), so the correct
- * integration point is a Servlet {@link jakarta.servlet.Filter} (via {@link OncePerRequestFilter}), not a
- * reactive {@code GlobalFilter}.
+ * Nota técnica: este módulo usa Spring Cloud Gateway <em>Server WebMVC</em> (stack Servlet), por lo que el punto
+ * de integración correcto es un {@link jakarta.servlet.Filter} (vía {@link OncePerRequestFilter}), no un filtro
+ * reactivo {@code GlobalFilter}.
  */
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE)
+@Order(Ordered.HIGHEST_PRECEDENCE + 1)
 public class RateLimitFilter extends OncePerRequestFilter implements Ordered {
+
+    private static final Logger log = LoggerFactory.getLogger(RateLimitFilter.class);
 
     private static final int REQUESTS_PER_MINUTE = 20;
 
@@ -49,7 +55,7 @@ public class RateLimitFilter extends OncePerRequestFilter implements Ordered {
 
     @Override
     public int getOrder() {
-        return Ordered.HIGHEST_PRECEDENCE;
+        return Ordered.HIGHEST_PRECEDENCE + 1;
     }
 
     @Override
@@ -64,13 +70,34 @@ public class RateLimitFilter extends OncePerRequestFilter implements Ordered {
 
         maybeEvictOldEntries();
 
-        if (entry.bucket().tryConsume(1)) {
+        ConsumptionProbe probe = entry.bucket().tryConsumeAndReturnRemaining(1);
+
+        response.setHeader("X-RateLimit-Limit", String.valueOf(REQUESTS_PER_MINUTE));
+        response.setHeader("X-RateLimit-Remaining", String.valueOf(probe.getRemainingTokens()));
+
+        if (probe.isConsumed()) {
             filterChain.doFilter(request, response);
             return;
         }
 
+        long nanosToWait = probe.getNanosToWaitForRefill();
+        long retryAfterSeconds = Math.max(1L, (nanosToWait + 999_999_999L) / 1_000_000_000L);
+        response.setHeader("Retry-After", String.valueOf(retryAfterSeconds));
+
+        String requestId = MDC.get("requestId");
+        log.warn(
+                "action=rate_limit.block outcome=denied method={} path={} clientIp={} requestId={} limitPerMinute={} retryAfterSec={}",
+                request.getMethod(),
+                request.getRequestURI(),
+                clientIp,
+                requestId,
+                REQUESTS_PER_MINUTE,
+                retryAfterSeconds
+        );
+
         response.setStatus(429);
-        response.flushBuffer();
+        response.setContentType("application/json");
+        response.getWriter().write("{\"error\":\"rate_limited\",\"message\":\"Too many requests\"}");
     }
 
     @Override
