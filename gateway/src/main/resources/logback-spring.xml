@@ -1,0 +1,55 @@
+<configuration>
+
+    <springProperty scope="context" name="APP_NAME" source="spring.application.name" defaultValue="app"/>
+
+    <contextName>${APP_NAME}</contextName>
+
+    <turboFilter class="ch.qos.logback.classic.turbo.DuplicateMessageFilter">
+        <AllowedRepetitions>5</AllowedRepetitions>
+    </turboFilter>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} [%thread] %-5level %logger{36} - %msg%n%ex</pattern>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+    <if condition='isDefined("LOKI_URL") &amp;&amp; isDefined("LOKI_USER") &amp;&amp; isDefined("LOKI_KEY")'>
+        <then>
+            <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
+                <labels>
+                    app=${APP_NAME}
+                    service=${APP_NAME}
+                    host=${HOSTNAME}
+                </labels>
+                <http>
+                    <url>${LOKI_URL}</url>
+                    <auth>
+                        <username>${LOKI_USER}</username>
+                        <password>${LOKI_KEY}</password>
+                    </auth>
+                    <requestTimeoutMs>15000</requestTimeoutMs>
+                </http>
+                <batch>
+                    <maxBytes>65536</maxBytes>
+                </batch>
+            </appender>
+
+            <appender name="LOKI_ASYNC" class="ch.qos.logback.classic.AsyncAppender">
+                <queueSize>512</queueSize>
+                <discardingThreshold>20</discardingThreshold>
+                <appender-ref ref="LOKI"/>
+            </appender>
+
+            <root level="INFO">
+                <appender-ref ref="CONSOLE"/>
+                <appender-ref ref="LOKI_ASYNC"/>
+            </root>
+        </then>
+    </if>
+
+</configuration>
