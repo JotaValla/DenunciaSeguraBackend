@@ -69,7 +69,7 @@ public class RateLimitFilter extends OncePerRequestFilter implements Ordered {
             return;
         }
 
-        response.setStatus(HttpServletResponse.SC_TOO_MANY_REQUESTS);
+        response.setStatus(429);
         response.flushBuffer();
     }
 
@@ -116,7 +116,7 @@ public class RateLimitFilter extends OncePerRequestFilter implements Ordered {
 
         long cutoff = System.currentTimeMillis() - EVICT_AFTER_IDLE_MILLIS;
         for (var entry : bucketsByIp.entrySet()) {
-            if (entry.getValue().lastAccessMillis() < cutoff) {
+            if (entry.getValue().lastAccessMillisValue() < cutoff) {
                 bucketsByIp.remove(entry.getKey(), entry.getValue());
             }
         }
@@ -131,7 +131,7 @@ public class RateLimitFilter extends OncePerRequestFilter implements Ordered {
             lastAccessMillis.set(System.currentTimeMillis());
         }
 
-        long lastAccessMillis() {
+        long lastAccessMillisValue() {
             return lastAccessMillis.get();
         }
     }
