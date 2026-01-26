@@ -3,6 +3,9 @@ package com.andervalla.msauth.validators;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 
+/**
+ * Lógica de validación para la cédula ecuatoriana (módulo 10).
+ */
 public class CedulaEcuatorianaValidator implements ConstraintValidator<CedulaEcuatoriana, String> {
 
     @Override

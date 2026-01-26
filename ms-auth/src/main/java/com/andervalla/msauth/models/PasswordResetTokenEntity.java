@@ -17,6 +17,9 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.Instant;
 
+/**
+ * Entidad para almacenar tokens de reseteo de contraseña temporales.
+ */
 @Entity
 @Getter
 @Setter

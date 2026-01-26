@@ -13,6 +13,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UserDetailsPasswordService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
@@ -29,9 +30,9 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
-import com.andervalla.msauth.clients.dtos.UsuarioResponse;
+import com.andervalla.msauth.clients.dtos.response.UsuarioResponse;
 import com.andervalla.msauth.repositories.CredencialRepository;
-import com.andervalla.msauth.services.UsuarioProvisioningService;
+import com.andervalla.msauth.services.auth.UsuarioProvisioningService;
 import java.time.Instant;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
@@ -59,11 +60,21 @@ import java.security.interfaces.RSAPublicKey;
 import java.time.Duration;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.authentication.ProviderManager;
+import com.andervalla.msauth.services.security.CredencialPasswordService;
 
+/**
+ * Configuración de seguridad para el Authorization Server y los endpoints de autenticación.
+ */
 @Configuration
 @EnableWebSecurity
 public class AuthSecurityConfig {
 
+    /**
+     * Registra (si no existe) el cliente público utilizado por la aplicación web.
+     */
     @Bean
     public RegisteredClientRepository registeredClientRepository(
             @Value("${app.security.client.id:ds-web}") String clientId,
@@ -106,12 +117,18 @@ public class AuthSecurityConfig {
         return repository;
     }
 
+    /**
+     * Define el issuer del servidor de autorización.
+     */
     @Bean
     public AuthorizationServerSettings authorizationServerSettings(
             @Value("${app.security.issuer:http://localhost:9092}") String issuer) {
         return AuthorizationServerSettings.builder().issuer(issuer).build();
     }
 
+    /**
+     * Fuente de llaves JWK generadas en caliente para firmar tokens.
+     */
     @Bean
     public JWKSource<SecurityContext> jwkSource() {
         RSAKey rsaKey = generateRsaKey();
@@ -119,26 +136,57 @@ public class AuthSecurityConfig {
         return (jwkSelector, securityContext) -> jwkSelector.select(jwkSet);
     }
 
+    /**
+     * Filtro que registra información de sesión en los flujos OAuth2.
+     */
     @Bean
     public SessionLoggingFilter sessionLoggingFilter() {
         return new SessionLoggingFilter();
     }
 
+    /**
+     * Decodificador JWT usado por el recurso protegido del Authorization Server.
+     */
     @Bean
     public JwtDecoder jwtDecoder(JWKSource<SecurityContext> jwkSource) {
         return OAuth2AuthorizationServerConfiguration.jwtDecoder(jwkSource);
     }
 
+    /**
+     * Codificador JWT que firma con la llave generada.
+     */
     @Bean
     public JwtEncoder jwtEncoder(JWKSource<SecurityContext> jwkSource) {
         return new NimbusJwtEncoder(jwkSource);
     }
 
+    /**
+     * Password encoder para credenciales locales del Authorization Server.
+     */
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        // Coste elevado para BCrypt (rehash automático vía UserDetailsPasswordService)
+        return new BCryptPasswordEncoder(12);
     }
 
+    @Bean
+    public UserDetailsPasswordService userDetailsPasswordService(CredencialRepository credencialRepository) {
+        return new CredencialPasswordService(credencialRepository);
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(PasswordEncoder passwordEncoder,
+                                                       UserDetailsService userDetailsService,
+                                                       UserDetailsPasswordService userDetailsPasswordService) {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder);
+        provider.setUserDetailsPasswordService(userDetailsPasswordService);
+        return new ProviderManager(provider);
+    }
+
+    /**
+     * Cadena de filtros para endpoints públicos como registro y reset de contraseña.
+     */
     @Bean
     @Order(0)
     public SecurityFilterChain publicEndpointsChain(HttpSecurity http) throws Exception {
@@ -148,6 +196,9 @@ public class AuthSecurityConfig {
         return http.build();
     }
 
+    /**
+     * Cadena de filtros específica del Authorization Server (tokens, OIDC, etc.).
+     */
     @Bean
     @Order(1)
     public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http, SessionLoggingFilter sessionLoggingFilter) throws Exception {
@@ -167,6 +218,9 @@ public class AuthSecurityConfig {
         return http.build();
     }
 
+    /**
+     * Cadena de filtros para el resto de endpoints protegidos con login de formulario.
+     */
     @Bean
     @Order(2)
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http, SessionLoggingFilter sessionLoggingFilter) throws Exception {
@@ -180,6 +234,9 @@ public class AuthSecurityConfig {
         return http.build();
     }
 
+    /**
+     * Adapta credenciales locales a {@link org.springframework.security.core.userdetails.UserDetailsService}.
+     */
     @Bean
     public UserDetailsService userDetailsService(CredencialRepository credencialRepository) {
         return username -> credencialRepository.findByCedula(username)
@@ -198,6 +255,9 @@ public class AuthSecurityConfig {
                 .orElseThrow(() -> new UsernameNotFoundException("Credenciales no encontradas"));
     }
 
+    /**
+     * Personaliza el access token/id token con claims del usuario (rol, alias, ids).
+     */
     @Bean
     public OAuth2TokenCustomizer<JwtEncodingContext> jwtCustomizer(UsuarioProvisioningService usuarioProvisioningService) {
         return context -> {
@@ -228,6 +288,9 @@ public class AuthSecurityConfig {
         };
     }
 
+    /**
+     * Genera un par de llaves RSA para firmar y publicar en el JWK set.
+     */
     private static RSAKey generateRsaKey() {
         try {
             KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
@@ -244,15 +307,24 @@ public class AuthSecurityConfig {
         }
     }
 
+    /**
+     * Filtro para registrar actividad de sesión durante el flujo OAuth2.
+     */
     private static class SessionLoggingFilter extends OncePerRequestFilter {
         private static final Logger log = LoggerFactory.getLogger(SessionLoggingFilter.class);
 
+        /**
+         * Solo filtra rutas relevantes al flujo OAuth2.
+         */
         @Override
         protected boolean shouldNotFilter(HttpServletRequest request) {
             String uri = request.getRequestURI();
             return !(uri.startsWith("/oauth2/authorize") || uri.startsWith("/login") || uri.startsWith("/error"));
         }
 
+        /**
+         * Registra información antes y después de procesar la petición.
+         */
         @Override
         protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
                 throws ServletException, IOException {

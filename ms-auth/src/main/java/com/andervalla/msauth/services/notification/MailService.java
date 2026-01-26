@@ -1,4 +1,4 @@
-package com.andervalla.msauth.services;
+package com.andervalla.msauth.services.notification;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -7,6 +7,9 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
+/**
+ * Envía correos simples; en dev registra advertencias si no hay configuración SMTP.
+ */
 @Slf4j
 @Service
 public class MailService {
@@ -17,6 +20,9 @@ public class MailService {
     @Value("${app.security.reset-url:http://localhost:5173/reset-password?token=}")
     private String resetUrl;
 
+    /**
+     * Envía (o registra) el correo con el enlace de reseteo de contraseña.
+     */
     public void enviarResetPassword(String emailDestino, String token) {
         if (mailSender == null) {
             log.warn("MailSender no configurado; token de reset para {}: {}", emailDestino, token);

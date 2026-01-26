@@ -18,6 +18,9 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.Instant;
 
+/**
+ * Representa las credenciales locales asociadas a un usuario remoto.
+ */
 @Entity
 @Getter
 @Setter

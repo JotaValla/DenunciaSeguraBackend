@@ -1,5 +1,8 @@
-package com.andervalla.msauth.clients.dtos;
+package com.andervalla.msauth.clients.dtos.response;
 
+/**
+ * Representa la respuesta de ms-usuarios al consultar o crear un usuario.
+ */
 public record UsuarioResponse(
         Long id,
         String cedula,

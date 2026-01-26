@@ -1,12 +1,14 @@
-package com.andervalla.msauth.controllers.dtos;
+package com.andervalla.msauth.controllers.dtos.request;
 
 import com.andervalla.msauth.validators.CedulaEcuatoriana;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-public record RegistroStaffAuthRequest(
+/**
+ * Solicitud de registro de un ciudadano desde el Authorization Server.
+ */
+public record RegistroCiudadanoAuthRequest(
         @NotBlank
         @Email
         @Size(max = 120)
@@ -18,10 +20,7 @@ public record RegistroStaffAuthRequest(
         @Size(min = 10, max = 10)
         @CedulaEcuatoriana
         String cedula,
-        @NotNull
-        String rol,
-        @NotNull
-        String entidad,
+        @NotBlank
         @Size(min = 8, max = 120)
         String password
 ) {
