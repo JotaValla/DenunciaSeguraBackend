@@ -3,6 +3,7 @@ package com.andervalla.msusuarios.validators;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 
+/** Valida cédula ecuatoriana por dígito verificador (módulo 10). */
 public class CedulaEcuatorianaValidator implements ConstraintValidator<CedulaEcuatoriana, String> {
 
     @Override

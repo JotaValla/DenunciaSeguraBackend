@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Locale;
 
 @Service
+/** Implementación del servicio de usuarios (reglas de rol/entidad, unicidad y alias). */
 public class UsuarioServiceImpl implements IUsuarioService {
 
     private final UsuarioRepository usuarioRepository;
@@ -164,6 +165,7 @@ public class UsuarioServiceImpl implements IUsuarioService {
     }
 
     private void validarAliasContenido(String aliasPublico, String cedula, String email) {
+        // Evita que el alias exponga datos sensibles (PII) del usuario.
         if (aliasPublico.contains("@")) {
             throw new AliasPublicoInvalidoException("Alias no debe contener correo.");
         }

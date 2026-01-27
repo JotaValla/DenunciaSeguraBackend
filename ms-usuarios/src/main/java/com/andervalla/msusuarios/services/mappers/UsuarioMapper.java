@@ -6,6 +6,7 @@ import com.andervalla.msusuarios.models.UsuarioEntity;
 import org.springframework.stereotype.Component;
 
 @Component
+/** Mapper simple: entidad -> DTOs de respuesta. */
 public class UsuarioMapper {
 
     public UsuarioResponse toUsuarioResponse(UsuarioEntity usuario) {

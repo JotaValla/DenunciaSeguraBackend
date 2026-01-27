@@ -29,6 +29,10 @@ import java.time.Instant;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+/**
+ * Entidad persistente de usuario.
+ * Mantiene unicidad por cédula y email.
+ */
 @Table(
         name = "usuarios",
         uniqueConstraints = {

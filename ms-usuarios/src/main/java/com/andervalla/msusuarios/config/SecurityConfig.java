@@ -12,10 +12,15 @@ import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
 @EnableMethodSecurity
+/** Configuración de Resource Server y autorización por roles. */
 public class SecurityConfig {
 
     @Bean
     @Order(0)
+    /**
+     * Cadena para endpoints internos (/interno/**).
+     * Normalmente se protege por red/gateway, no por JWT.
+     */
     public SecurityFilterChain internalChain(HttpSecurity http) throws Exception {
         http.securityMatcher("/interno/**")
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
@@ -26,6 +31,7 @@ public class SecurityConfig {
 
     @Bean
     @Order(1)
+    /** Cadena principal: requiere JWT para todo excepto health. */
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health").permitAll()
@@ -43,6 +49,7 @@ public class SecurityConfig {
             var authorities = new java.util.HashSet<>(baseConverter.convert(jwt));
             String rol = jwt.getClaimAsString("rol");
             if (rol != null && !rol.isBlank()) {
+                // Permite usar @PreAuthorize("hasRole('X')") leyendo el claim `rol`.
                 authorities.add(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_" + rol.toUpperCase()));
             }
             return authorities;

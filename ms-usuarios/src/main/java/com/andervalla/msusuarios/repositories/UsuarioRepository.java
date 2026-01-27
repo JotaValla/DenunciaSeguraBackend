@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
 
+/** Repositorio JPA para consultas de usuarios (cedula/email/rol/entidad). */
 public interface UsuarioRepository extends JpaRepository<UsuarioEntity, Long> {
     Optional<UsuarioEntity> findByCedula(String cedula);
     Optional<UsuarioEntity> findByEmail(String email);

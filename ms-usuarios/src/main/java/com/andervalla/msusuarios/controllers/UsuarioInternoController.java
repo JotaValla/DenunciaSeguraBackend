@@ -12,6 +12,10 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * Endpoints internos (uso por gateway/otros MS) para CRUD básico.
+ * La seguridad de estos paths se aplica por red/perímetro, no por JWT.
+ */
 @RestController
 @RequestMapping("/interno/usuarios")
 public class UsuarioInternoController {

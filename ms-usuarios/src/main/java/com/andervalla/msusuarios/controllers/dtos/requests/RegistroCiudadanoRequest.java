@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+/** Request para registrar un ciudadano. */
 public record RegistroCiudadanoRequest(
         @NotBlank
         @Email

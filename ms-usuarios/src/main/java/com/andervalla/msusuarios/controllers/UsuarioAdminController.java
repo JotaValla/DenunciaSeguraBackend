@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/** Endpoints administrativos para consultar staff por entidad. */
 @RestController
 @RequestMapping("/usuarios")
 public class UsuarioAdminController {
@@ -23,12 +24,14 @@ public class UsuarioAdminController {
 
     @GetMapping("/jefe")
     @PreAuthorize("hasAnyRole('SUPERVISOR','ADMIN')")
+    /** Obtiene el jefe de operadores según entidad. */
     public UsuarioResponse obtenerJefePorEntidad(@RequestParam EntidadEnum entidad) {
         return usuarioService.obtenerJefePorEntidad(entidad);
     }
 
     @GetMapping("/operadores")
     @PreAuthorize("hasAnyRole('SUPERVISOR','ADMIN')")
+    /** Lista operadores según entidad. */
     public List<UsuarioResponse> obtenerOperadoresPorEntidad(@RequestParam EntidadEnum entidad) {
         return usuarioService.obtenerOperadoresPorEntidad(entidad);
     }

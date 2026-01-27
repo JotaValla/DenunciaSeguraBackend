@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/** Endpoints públicos del ciudadano autenticado (perfil/alias). */
 @RestController
 @RequestMapping("/usuarios")
 public class UsuarioCiudadanoController {
@@ -23,6 +24,10 @@ public class UsuarioCiudadanoController {
 
     @PatchMapping("/alias")
     @PreAuthorize("hasRole('CIUDADANO')")
+    /**
+     * Actualiza el alias del ciudadano autenticado.
+     * El id se toma del `sub` del JWT.
+     */
     public AliasResponse actualizarAliasCiudadano(@Valid @RequestBody ActualizarAliasRequest request,
                                                   JwtAuthenticationToken authentication) {
         Long usuarioId = Long.valueOf(authentication.getToken().getSubject());

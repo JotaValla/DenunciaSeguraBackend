@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/** Endpoint para leer el perfil del usuario autenticado. */
 @RestController
 @RequestMapping({"/usuarios", ""})
 public class UsuarioPerfilController {
@@ -21,6 +22,9 @@ public class UsuarioPerfilController {
 
     @GetMapping("/me")
     @PreAuthorize("isAuthenticated()")
+    /**
+     * Resuelve el usuario desde `usuario_id` (claim) o, si no existe, desde `sub`.
+     */
     public UsuarioResponse obtenerPerfil(@AuthenticationPrincipal Jwt jwt) {
         Long usuarioId = jwt.getClaim("usuario_id");
         if (usuarioId == null) {
