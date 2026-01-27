@@ -69,7 +69,7 @@ public class UsuarioEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
     private EstadoUsuarioEnum estado = EstadoUsuarioEnum.ACTIVO;
-
+    //por defecto activo
     @CreationTimestamp
     @Column(name = "creado_en", nullable = false, updatable = false)
     private Instant creadoEn;
