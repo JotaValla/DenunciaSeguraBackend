@@ -10,6 +10,7 @@ import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.stereotype.Service;
+import com.andervalla.msauth.config.TokenCookieProperties;
 
 /**
  * Servicio para revocar refresh tokens y cerrar la sesión del servidor de autorización.
@@ -23,19 +24,22 @@ public class LogoutService {
     private final boolean sessionCookieSecure;
     private final boolean sessionCookieHttpOnly;
     private final String sessionCookieSameSite;
+    private final TokenCookieProperties tokenCookieProperties;
 
     public LogoutService(OAuth2AuthorizationService authorizationService,
                          @Value("${server.servlet.session.cookie.name:JSESSIONID}") String sessionCookieName,
                          @Value("${server.servlet.session.cookie.path:/}") String sessionCookiePath,
                          @Value("${server.servlet.session.cookie.secure:false}") boolean sessionCookieSecure,
                          @Value("${server.servlet.session.cookie.http-only:true}") boolean sessionCookieHttpOnly,
-                         @Value("${server.servlet.session.cookie.same-site:Lax}") String sessionCookieSameSite) {
+                         @Value("${server.servlet.session.cookie.same-site:Lax}") String sessionCookieSameSite,
+                         TokenCookieProperties tokenCookieProperties) {
         this.authorizationService = authorizationService;
         this.sessionCookieName = sessionCookieName;
         this.sessionCookiePath = sessionCookiePath;
         this.sessionCookieSecure = sessionCookieSecure;
         this.sessionCookieHttpOnly = sessionCookieHttpOnly;
         this.sessionCookieSameSite = sessionCookieSameSite;
+        this.tokenCookieProperties = tokenCookieProperties;
     }
 
     /**
@@ -64,14 +68,35 @@ public class LogoutService {
             invalidada = true;
         }
 
-        ResponseCookie cookie = ResponseCookie.from(sessionCookieName, "")
+        ResponseCookie sessionCookie = ResponseCookie.from(sessionCookieName, "")
                 .path(sessionCookiePath)
                 .maxAge(Duration.ZERO)
                 .httpOnly(sessionCookieHttpOnly)
                 .secure(sessionCookieSecure)
                 .sameSite(sessionCookieSameSite)
                 .build();
-        response.addHeader("Set-Cookie", cookie.toString());
+        response.addHeader("Set-Cookie", sessionCookie.toString());
+
+        if (tokenCookieProperties.isEnabled()) {
+            clearTokenCookie(response, tokenCookieProperties.getAccessTokenName());
+            clearTokenCookie(response, tokenCookieProperties.getRefreshTokenName());
+        }
         return invalidada;
+    }
+
+    private void clearTokenCookie(HttpServletResponse response, String cookieName) {
+        if (cookieName == null || cookieName.isBlank()) {
+            return;
+        }
+        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(cookieName, "")
+                .path(tokenCookieProperties.getPath())
+                .maxAge(Duration.ZERO)
+                .httpOnly(tokenCookieProperties.isHttpOnly())
+                .secure(tokenCookieProperties.isSecure())
+                .sameSite(tokenCookieProperties.getSameSite());
+        if (tokenCookieProperties.getDomain() != null && !tokenCookieProperties.getDomain().isBlank()) {
+            builder.domain(tokenCookieProperties.getDomain());
+        }
+        response.addHeader("Set-Cookie", builder.build().toString());
     }
 }

@@ -7,6 +7,7 @@ import com.nimbusds.jose.proc.SecurityContext;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -47,10 +48,13 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Toke
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.LogoutFilter;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.filter.OncePerRequestFilter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -84,6 +88,7 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @Configuration
 @EnableWebSecurity
+@EnableConfigurationProperties(TokenCookieProperties.class)
 public class AuthSecurityConfig {
 
     /**
@@ -278,7 +283,10 @@ public class AuthSecurityConfig {
     @Order(1)
     public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http,
                                                                       SessionLoggingFilter sessionLoggingFilter,
-                                                                      OAuth2TokenGenerator<?> tokenGenerator) throws Exception {
+                                                                      OAuth2TokenGenerator<?> tokenGenerator,
+                                                                      RefreshTokenCookieFilter refreshTokenCookieFilter,
+                                                                      AuthenticationEntryPoint tokenErrorEntryPoint,
+                                                                      TokenCookieAuthenticationSuccessHandler tokenSuccessHandler) throws Exception {
         OAuth2AuthorizationServerConfigurer authorizationServerConfigurer =
                 new OAuth2AuthorizationServerConfigurer();
 
@@ -290,9 +298,14 @@ public class AuthSecurityConfig {
                 .csrf(csrf -> csrf.ignoringRequestMatchers(authorizationServerConfigurer.getEndpointsMatcher()))
                 .with(authorizationServerConfigurer, authServer -> authServer
                         .oidc(Customizer.withDefaults())
-                        .tokenGenerator(tokenGenerator))
+                        .tokenGenerator(tokenGenerator)
+                        .tokenEndpoint(tokenEndpoint -> tokenEndpoint
+                                .accessTokenResponseHandler(tokenSuccessHandler)
+                                .errorResponseHandler((request, response, exception) ->
+                                        tokenErrorEntryPoint.commence(request, response, exception))))
                 // Habilita validación de tokens Bearer (userinfo, introspection, etc.)
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
+                .addFilterBefore(refreshTokenCookieFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(sessionLoggingFilter, LogoutFilter.class);
         return http.build();
     }
@@ -311,6 +324,31 @@ public class AuthSecurityConfig {
                 .csrf(csrf -> csrf.ignoringRequestMatchers("/login"))
                 .addFilterBefore(sessionLoggingFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
+    }
+
+    /**
+     * Entrada estándar para errores del endpoint de token.
+     */
+    @Bean
+    public AuthenticationEntryPoint tokenErrorEntryPoint() {
+        return new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED);
+    }
+
+    /**
+     * Handler que emite cookies HttpOnly con access/refresh tokens.
+     */
+    @Bean
+    public TokenCookieAuthenticationSuccessHandler tokenSuccessHandler(TokenCookieProperties cookieProperties,
+                                                                        AuthenticationEntryPoint tokenErrorEntryPoint) {
+        return new TokenCookieAuthenticationSuccessHandler(cookieProperties, tokenErrorEntryPoint);
+    }
+
+    /**
+     * Filtro para aceptar refresh_token desde cookie.
+     */
+    @Bean
+    public RefreshTokenCookieFilter refreshTokenCookieFilter(TokenCookieProperties cookieProperties) {
+        return new RefreshTokenCookieFilter(cookieProperties);
     }
 
     /**

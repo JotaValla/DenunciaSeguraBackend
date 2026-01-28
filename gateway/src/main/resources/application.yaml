@@ -4,6 +4,9 @@ app:
       - "http://localhost:4200"
       - "https://denuncia-segura-frontend.vercel.app"
       - "https://gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io"
+  security:
+    cookies:
+      access-token-name: ${APP_SECURITY_COOKIE_ACCESS_TOKEN:DS_ACCESS_TOKEN}
 
 spring:
   application:
