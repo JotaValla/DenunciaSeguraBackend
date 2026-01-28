@@ -500,17 +500,7 @@ public class DenunciaServiceImpl implements IDenunciaService {
                 throw new AccessDeniedException("Rol no autorizado");
         }
         return denuncias.stream()
-                .map(d -> new DenunciaListadoResponse(
-                        d.getId(),
-                        d.getJefeId(),
-                        d.getOperadorId(),
-                        d.getTitulo(),
-                        d.getCiudadanoId(),
-                        d.getCreadoEn(),
-                        d.getEntidadResponsable(),
-                        d.getEstadoDenunciaEnum(),
-                        d.getCategoriaDenunciaEnum()
-                ))
+                .map(denunciaMapper::toDenunciaListadoResponseDTO)
                 .toList();
     }
 

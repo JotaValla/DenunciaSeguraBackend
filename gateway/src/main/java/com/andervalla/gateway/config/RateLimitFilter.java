@@ -108,7 +108,16 @@ public class RateLimitFilter extends OncePerRequestFilter implements Ordered {
         }
 
         String path = request.getRequestURI();
-        return path != null && path.startsWith("/actuator");
+        if (path == null) {
+            return false;
+        }
+        if (path.startsWith("/actuator")) {
+            return true;
+        }
+        if (path.startsWith("/.well-known") || path.startsWith("/auth/.well-known")) {
+            return true;
+        }
+        return path.equals("/auth/oauth2/jwks");
     }
 
     private static Bucket newBucket() {
