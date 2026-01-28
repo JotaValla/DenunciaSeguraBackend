@@ -23,6 +23,11 @@ import org.springframework.security.oauth2.server.authorization.token.JwtEncodin
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
+import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
+import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
+import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
+import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationConsentService;
+import org.springframework.security.oauth2.server.authorization.jackson.OAuth2AuthorizationServerJacksonModule;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
@@ -32,6 +37,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
 import com.andervalla.msauth.clients.dtos.response.UsuarioResponse;
 import com.andervalla.msauth.repositories.CredencialRepository;
+import com.andervalla.msauth.services.security.ForceRefreshTokenGenerator;
 import com.andervalla.msauth.services.auth.UsuarioProvisioningService;
 import java.time.Instant;
 import org.springframework.security.authentication.DisabledException;
@@ -64,6 +70,14 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.authentication.ProviderManager;
 import com.andervalla.msauth.services.security.CredencialPasswordService;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenGenerator;
+import org.springframework.security.oauth2.server.authorization.token.DelegatingOAuth2TokenGenerator;
+import org.springframework.security.oauth2.server.authorization.token.JwtGenerator;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2AccessTokenGenerator;
+import org.springframework.security.jackson.SecurityJacksonModules;
+import tools.jackson.databind.JacksonModule;
+import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Configuración de seguridad para el Authorization Server y los endpoints de autenticación.
@@ -92,6 +106,7 @@ public class AuthSecurityConfig {
                     .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
                     .scope(OidcScopes.OPENID)
                     .scope(OidcScopes.PROFILE)
+                    .scope("offline_access")
                     .clientSettings(ClientSettings.builder()
                             .requireAuthorizationConsent(false)
                             .requireProofKey(true)
@@ -115,6 +130,53 @@ public class AuthSecurityConfig {
         }
 
         return repository;
+    }
+
+    /**
+     * Servicio JDBC para almacenar autorizaciones y revocar tokens.
+     */
+    @Bean
+    public OAuth2AuthorizationService authorizationService(JdbcTemplate jdbcTemplate,
+                                                           RegisteredClientRepository registeredClientRepository) {
+        JdbcOAuth2AuthorizationService service =
+                new JdbcOAuth2AuthorizationService(jdbcTemplate, registeredClientRepository);
+        JsonMapper jsonMapper = authorizationJsonMapper();
+        service.setAuthorizationRowMapper(
+                new JdbcOAuth2AuthorizationService.JsonMapperOAuth2AuthorizationRowMapper(
+                        registeredClientRepository, jsonMapper));
+        service.setAuthorizationParametersMapper(
+                new JdbcOAuth2AuthorizationService.JsonMapperOAuth2AuthorizationParametersMapper(jsonMapper));
+        return service;
+    }
+
+    /**
+     * ObjectMapper seguro para serializar/deserializar autorizaciones OAuth2.
+     */
+    @Bean
+    public JsonMapper authorizationJsonMapper() {
+        BasicPolymorphicTypeValidator.Builder ptv = BasicPolymorphicTypeValidator.builder()
+                .allowIfSubType("java.lang")
+                .allowIfSubType("java.time")
+                .allowIfSubType("java.util")
+                .allowIfSubType("org.springframework.security")
+                .allowIfSubType("org.springframework.security.oauth2");
+
+        ClassLoader classLoader = AuthSecurityConfig.class.getClassLoader();
+        java.util.List<JacksonModule> modules = SecurityJacksonModules.getModules(classLoader, ptv);
+        modules.add(new OAuth2AuthorizationServerJacksonModule());
+
+        return JsonMapper.builder()
+                .addModules(modules)
+                .build();
+    }
+
+    /**
+     * Servicio JDBC para consentimientos OAuth2.
+     */
+    @Bean
+    public OAuth2AuthorizationConsentService authorizationConsentService(JdbcTemplate jdbcTemplate,
+                                                                         RegisteredClientRepository registeredClientRepository) {
+        return new JdbcOAuth2AuthorizationConsentService(jdbcTemplate, registeredClientRepository);
     }
 
     /**
@@ -161,6 +223,19 @@ public class AuthSecurityConfig {
     }
 
     /**
+     * Generador de tokens que asegura la emisión de refresh tokens cuando corresponde.
+     */
+    @Bean
+    public OAuth2TokenGenerator<?> tokenGenerator(JwtEncoder jwtEncoder,
+                                                  OAuth2TokenCustomizer<JwtEncodingContext> jwtCustomizer,
+                                                  ForceRefreshTokenGenerator forceRefreshTokenGenerator) {
+        JwtGenerator jwtGenerator = new JwtGenerator(jwtEncoder);
+        jwtGenerator.setJwtCustomizer(jwtCustomizer);
+        OAuth2AccessTokenGenerator accessTokenGenerator = new OAuth2AccessTokenGenerator();
+        return new DelegatingOAuth2TokenGenerator(jwtGenerator, accessTokenGenerator, forceRefreshTokenGenerator);
+    }
+
+    /**
      * Password encoder para credenciales locales del Authorization Server.
      */
     @Bean
@@ -190,7 +265,7 @@ public class AuthSecurityConfig {
     @Bean
     @Order(0)
     public SecurityFilterChain publicEndpointsChain(HttpSecurity http) throws Exception {
-        http.securityMatcher("/register/**", "/actuator/health", "/auth/password/**", "/password/**", "/error")
+        http.securityMatcher("/register/**", "/actuator/health", "/auth/password/**", "/auth/logout", "/password/**", "/error")
                 .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
                 .csrf(csrf -> csrf.disable());
         return http.build();
@@ -201,7 +276,9 @@ public class AuthSecurityConfig {
      */
     @Bean
     @Order(1)
-    public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http, SessionLoggingFilter sessionLoggingFilter) throws Exception {
+    public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http,
+                                                                      SessionLoggingFilter sessionLoggingFilter,
+                                                                      OAuth2TokenGenerator<?> tokenGenerator) throws Exception {
         OAuth2AuthorizationServerConfigurer authorizationServerConfigurer =
                 new OAuth2AuthorizationServerConfigurer();
 
@@ -211,7 +288,9 @@ public class AuthSecurityConfig {
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")))
                 .csrf(csrf -> csrf.ignoringRequestMatchers(authorizationServerConfigurer.getEndpointsMatcher()))
-                .with(authorizationServerConfigurer, authServer -> authServer.oidc(Customizer.withDefaults()))
+                .with(authorizationServerConfigurer, authServer -> authServer
+                        .oidc(Customizer.withDefaults())
+                        .tokenGenerator(tokenGenerator))
                 // Habilita validación de tokens Bearer (userinfo, introspection, etc.)
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
                 .addFilterBefore(sessionLoggingFilter, LogoutFilter.class);

@@ -15,6 +15,19 @@ spring:
       server:
         webmvc:
           routes:
+            # Logout personalizado del ms-auth (no se elimina el prefijo /auth).
+            - id: auth-logout
+              uri: ${URI_MS_AUTH:http://localhost:9092}
+              predicates:
+                - Path=/auth/logout
+              filters:
+                - SetRequestHeader=Host, ${GATEWAY_HOST:gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
+                - AddRequestHeader=Forwarded, proto=${FORWARDED_PROTO:https};host=${GATEWAY_HOST:gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
+                - AddRequestHeader=X-Forwarded-Proto, ${FORWARDED_PROTO:https}
+                - AddRequestHeader=X-Forwarded-Host, ${GATEWAY_HOST:gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
+                - AddRequestHeader=X-Forwarded-Port, ${FORWARDED_PORT:443}
+                - AddRequestHeader=X-Forwarded-Prefix, /auth
+
             # Flujo OAuth2/login con prefijo /auth (se quita con StripPrefix).
             - id: auth-oauth2
               uri: ${URI_MS_AUTH:http://localhost:9092}
