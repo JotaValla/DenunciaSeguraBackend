@@ -101,6 +101,26 @@ paths:
         '400':
           description: Token inválido o expirado
 
+  /auth/logout:
+    post:
+      tags:
+        - Publico
+      summary: Cerrar sesión y revocar refresh token
+      operationId: logout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '200':
+          description: Logout procesado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+
 components:
   securitySchemes:
     BearerAuth:
@@ -198,6 +218,23 @@ components:
         token:
           type: string
           description: Token de reseteo (dev only)
+
+    LogoutRequest:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          description: Token de refresco a revocar (opcional)
+
+    LogoutResponse:
+      type: object
+      properties:
+        mensaje:
+          type: string
+        refreshTokenRevocado:
+          type: boolean
+        sesionInvalidada:
+          type: boolean
 
     ErrorResponse:
       type: object

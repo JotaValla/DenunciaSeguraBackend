@@ -61,10 +61,6 @@ components:
           $ref: '#/components/schemas/RolEnum'
         entidad:
           $ref: '#/components/schemas/EntidadEnum'
-        aliasPublico:
-          type: string
-          minLength: 3
-          maxLength: 40
       required:
         - email
         - nombre
@@ -107,8 +103,6 @@ components:
           $ref: '#/components/schemas/EntidadEnum'
         aliasPublico:
           type: string
-        publicCitizenId:
-          type: string
         estado:
           $ref: '#/components/schemas/EstadoUsuarioEnum'
 
@@ -123,8 +117,6 @@ components:
         entidad:
           $ref: '#/components/schemas/EntidadEnum'
         aliasPublico:
-          type: string
-        publicCitizenId:
           type: string
 
     RolEnum:
@@ -214,6 +206,29 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UsuarioResponse'
+      security:
+        - bearerAuth: []
+
+  /usuarios/alias:
+    patch:
+      tags:
+        - Perfil
+      summary: Actualizar alias del ciudadano autenticado
+      description: Requiere rol CIUDADANO
+      operationId: actualizarAliasCiudadano
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActualizarAliasRequest'
+      responses:
+        '200':
+          description: Alias actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AliasResponse'
       security:
         - bearerAuth: []
 
