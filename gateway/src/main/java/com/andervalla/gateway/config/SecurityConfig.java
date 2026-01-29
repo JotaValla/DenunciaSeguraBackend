@@ -88,6 +88,10 @@ public class SecurityConfig {
     public BearerTokenResolver bearerTokenResolver() {
         DefaultBearerTokenResolver resolver = new DefaultBearerTokenResolver();
         return request -> {
+            String uri = request.getRequestURI();
+            if (uri != null && (uri.equals("/auth") || uri.startsWith("/auth/") || uri.startsWith("/.well-known/"))) {
+                return null;
+            }
             String token = resolver.resolve(request);
             if (token != null) {
                 return token;

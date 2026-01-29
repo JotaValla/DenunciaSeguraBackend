@@ -35,7 +35,7 @@ spring:
             - id: auth-oauth2
               uri: ${URI_MS_AUTH:http://localhost:9092}
               predicates:
-                - Path=/auth/oauth2/**,/auth/login/**,/auth/.well-known/**,/auth/actuator/**,/auth/register/**,/auth/password/**,/auth/default-ui.css
+                - Path=/auth/oauth2/**,/auth/login/**,/auth/.well-known/**,/auth/actuator/**,/auth/register/**,/auth/password/**,/auth/default-ui.css,/auth/login.html,/auth/login.css,/auth/login.js,/auth/favicon.ico
               filters:
                 - StripPrefix=1
                 - SetRequestHeader=Host, ${GATEWAY_HOST:gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}

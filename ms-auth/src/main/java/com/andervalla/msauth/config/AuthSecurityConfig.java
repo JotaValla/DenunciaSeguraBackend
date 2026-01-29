@@ -77,6 +77,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.authentication.ProviderManager;
 import com.andervalla.msauth.services.security.CredencialPasswordService;
+import com.andervalla.msauth.services.security.PasswordPolicyValidator;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenGenerator;
 import org.springframework.security.oauth2.server.authorization.token.DelegatingOAuth2TokenGenerator;
 import org.springframework.security.oauth2.server.authorization.token.JwtGenerator;
@@ -322,14 +323,18 @@ public class AuthSecurityConfig {
     @Order(2)
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http,
                                                           SessionLoggingFilter sessionLoggingFilter,
-                                                          RequestCache oauth2RequestCache) throws Exception {
+                                                          RequestCache oauth2RequestCache,
+                                                          LoginInputValidationFilter loginInputValidationFilter) throws Exception {
 
-        http.authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
+        http.authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers("/login.html", "/login.css", "/login.js", "/favicon.ico").permitAll()
+                        .anyRequest().authenticated())
                 .sessionManagement(session -> session.sessionFixation().none())
-                .formLogin(Customizer.withDefaults())
+                .formLogin(form -> form.loginPage("/login").permitAll())
                 .requestCache(cache -> cache.requestCache(oauth2RequestCache))
                 // El login se usa solo para el flujo OAuth2; evitamos fallos de CSRF con navegadores/proxies intermedios.
                 .csrf(csrf -> csrf.ignoringRequestMatchers("/login"))
+                .addFilterBefore(loginInputValidationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(sessionLoggingFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
@@ -373,6 +378,14 @@ public class AuthSecurityConfig {
     @Bean
     public RefreshTokenCookieFilter refreshTokenCookieFilter(TokenCookieProperties cookieProperties) {
         return new RefreshTokenCookieFilter(cookieProperties);
+    }
+
+    /**
+     * Valida inputs del login (cedula y password) antes de autenticar.
+     */
+    @Bean
+    public LoginInputValidationFilter loginInputValidationFilter(PasswordPolicyValidator passwordPolicyValidator) {
+        return new LoginInputValidationFilter(passwordPolicyValidator);
     }
 
     /**

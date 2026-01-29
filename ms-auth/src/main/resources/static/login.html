@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Denuncia Segura - Login</title>
+    <link rel="stylesheet" href="login.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="card" aria-labelledby="login-title">
+        <div class="brand">
+          <div class="brand-mark">DS</div>
+          <div class="brand-text">
+            <p class="brand-name">Denuncia Segura</p>
+            <p class="brand-subtitle">Acceso OAuth2</p>
+          </div>
+        </div>
+
+        <h1 id="login-title">Iniciar sesión</h1>
+        <p class="hint">Usa tu cédula (10 dígitos) y contraseña.</p>
+
+        <div id="form-error" class="form-error" role="alert" aria-live="polite"></div>
+
+        <form class="form" method="post" action="login" novalidate>
+          <label class="field">
+            <span class="field-label">Cédula</span>
+            <input
+              id="username"
+              name="username"
+              type="text"
+              inputmode="numeric"
+              autocomplete="username"
+              placeholder="0102030405"
+              required
+              maxlength="10"
+            />
+            <small id="username-help" class="field-help" aria-live="polite"></small>
+          </label>
+
+          <label class="field">
+            <span class="field-label">Contraseña</span>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              placeholder="********"
+              required
+            />
+            <small id="password-help" class="field-help" aria-live="polite"></small>
+          </label>
+
+          <button id="submit-btn" class="btn" type="submit">Continuar</button>
+        </form>
+
+        <p class="footer">Authorization Server</p>
+      </section>
+    </main>
+
+    <script src="login.js"></script>
+  </body>
+</html>
