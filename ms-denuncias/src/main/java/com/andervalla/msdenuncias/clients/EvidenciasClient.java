@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.List;
 
-@FeignClient(name = "ms-evidencias")
+@FeignClient(name = "ms-evidencias", url = "${CLIENTS_EVIDENCIAS_URI:http://localhost:8090}")
 @Component
 public interface EvidenciasClient {
 

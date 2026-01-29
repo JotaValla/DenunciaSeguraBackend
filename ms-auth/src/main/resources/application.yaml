@@ -1,10 +1,51 @@
-# Configuraci?n de la aplicaci?n ms-auth
+# Configuración de la aplicación ms-auth
 spring:
   application:
     name: ms-auth
 
-  config:
-    import: optional:configserver:http://localhost:8888
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    username: ${DB_USER:postgres.your-id-on-supabase}
+    password: ${DB_PASSWORD:your-password-on-supabase}
+    url: ${DB_URL:jdbc:postgresql://aws-0-us-west-2.pooler.supabase.com:5432/postgres}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+      max-lifetime: 60000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        default_schema: ms_auth
+    database: postgresql
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+server:
+  port: 9092
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      cookie:
+        name: MSAUTHSESSION
+        path: /
+        secure: ${SERVER_SESSION_COOKIE_SECURE:true}
+        same-site: ${SERVER_SESSION_COOKIE_SAME_SITE:Lax}
 
 eureka:
   client:
@@ -19,14 +60,28 @@ logging:
     org.springframework.security: DEBUG
     org.springframework.security.oauth2: DEBUG
     org.springframework.security.web: DEBUG
-    org.springframework.security.oauth2.server.authorization: DEBUG
+    org.springframework.security.oauth2.server.authorization: TRACE
+    org.springframework.security.web.FilterChainProxy: DEBUG
 
+app:
+  security:
+    issuer: ${APP_SECURITY_ISSUER:https://gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
+    client:
+      id: ${APP_SECURITY_CLIENT_ID:ds-web}
+      redirect-uris: ${APP_SECURITY_CLIENT_REDIRECT_URIS:http://localhost:4200/dashboard,https://oauth.pstmn.io/v1/callback,https://denuncia-segura-frontend.vercel.app/dashboard, http://localhost:8081/auth/callback}
+    reset-url: http://localhost:5173/reset-password?token=
+    cookies:
+      enabled: true
+      access-token-name: ${APP_SECURITY_COOKIE_ACCESS_TOKEN:DS_ACCESS_TOKEN}
+      refresh-token-name: ${APP_SECURITY_COOKIE_REFRESH_TOKEN:DS_REFRESH_TOKEN}
+      path: ${APP_SECURITY_COOKIE_PATH:/}
+      domain: ${APP_SECURITY_COOKIE_DOMAIN:}
+      secure: ${APP_SECURITY_COOKIE_SECURE:true}
+      http-only: ${APP_SECURITY_COOKIE_HTTP_ONLY:true}
+      same-site: ${APP_SECURITY_COOKIE_SAME_SITE:None}
 
-management:
-  otlp:
-    metrics:
-      export:
-        enabled: false  # <--- Esto apaga el error
-    tracing:
-      export:
-        enabled: false  # <--- Esto también
+ms-usuarios:
+  url: http://localhost:9091
+
+cloudflare:
+  secret-key: ${CLOUDFLARE_SECRET_KEY:1x0000000000000000000000000000000AA}

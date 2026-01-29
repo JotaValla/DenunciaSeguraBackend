@@ -18,8 +18,6 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>ms-eureka</module>
-        <module>ms-configServer</module>
         <module>ms-denuncias</module>
         <module>ms-evidencias</module>
         <module>ms-usuarios</module>
@@ -49,17 +47,6 @@
 
 
     </dependencies>
-
-    <dependencyManagement>
-        <dependencies>
-            <!-- OTel starter managed by Spring Boot 4 -->
-            <dependency>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-starter-opentelemetry</artifactId>
-                <version>4.0.1</version>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
 
     <build>
         <pluginManagement>

@@ -7,7 +7,7 @@ import java.time.Instant;
 public record EstadoCambio(
         EstadoDenunciaEnum estadoAnterior,
         EstadoDenunciaEnum estadoNuevo,
-        Long actorId,
+        String actorNombre,
         Instant ocurridoEn
 ) {
 }

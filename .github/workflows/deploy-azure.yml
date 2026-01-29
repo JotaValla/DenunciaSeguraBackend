@@ -2,7 +2,7 @@ name: Deploy Backend to Azure Container Apps
 
 on:
   push:
-    branches: [ main ]
+    branches: [ deploy ]
     paths-ignore:
       - 'docs/**'
       - '**.md'
@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   build-and-deploy:
@@ -18,61 +17,49 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [ms-configServer, ms-eureka, ms-auth, ms-usuarios, ms-evidencias, ms-denuncias, gateway]
+        service: [gateway, ms-auth, ms-usuarios, ms-denuncias, ms-evidencias]
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Normalize service name
-        id: vars
-        shell: bash
-        run: |
-          service_lc="$(echo "${{ matrix.service }}" | tr '[:upper:]' '[:lower:]')"
-          echo "service_lc=$service_lc" >> "$GITHUB_OUTPUT"
-      
       - name: Set up JDK 25
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '25'
-          cache: 'maven'
+          cache: maven
 
-      # 1. Compilar todo el proyecto
-      - name: Build with Maven
-        run: mvn -B -DskipTests clean package
+      - name: Build service with Maven
+        run: mvn -B -DskipTests clean package -pl ${{ matrix.service }} -am
 
-      # 2. Login en Azure
       - name: Azure Login
         uses: azure/login@v1
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          creds: ${{ secrets.AZURE_CREDENTIALS_DEPLOY }}
 
-      # 3. Login en Docker Registry (ACR)
-      - name: Docker Login
+      - name: Docker Login (ACR)
         uses: docker/login-action@v3
         with:
-          registry: ${{ secrets.REGISTRY_LOGIN_SERVER }}
-          username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
+          registry: ${{ secrets.REGISTRY_LOGIN_SERVER_DEPLOY }}
+          username: ${{ secrets.REGISTRY_USERNAME_DEPLOY}}
+          password: ${{ secrets.REGISTRY_PASSWORD_DEPLOY}}
 
-      # 4. Construir y Subir Imagen
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
           context: ./${{ matrix.service }}
           file: ./${{ matrix.service }}/Dockerfile
           push: true
-          tags: ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ steps.vars.outputs.service_lc }}:${{ github.sha }}
+          tags: ${{ secrets.REGISTRY_LOGIN_SERVER_DEPLOY }}/${{ matrix.service }}:${{ github.sha }}
 
-      # 5. Desplegar a Azure Container Apps
       - name: Deploy to Azure Container Apps
         uses: azure/container-apps-deploy-action@v1
         with:
-          containerAppName: ${{ steps.vars.outputs.service_lc }}
+          containerAppName: ${{ matrix.service }}
           resourceGroup: rg-denuncia-segura-v2
-          imageToDeploy: ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ steps.vars.outputs.service_lc }}:${{ github.sha }}
-          
-          # 👇 ESTAS SON LAS LÍNEAS QUE FALTABAN PARA ARREGLAR EL ERROR 👇
-          registryUrl: ${{ secrets.REGISTRY_LOGIN_SERVER }}
-          registryUsername: ${{ secrets.REGISTRY_USERNAME }}
-          registryPassword: ${{ secrets.REGISTRY_PASSWORD }}
+          imageToDeploy: ${{ secrets.REGISTRY_LOGIN_SERVER_DEPLOY }}/${{ matrix.service }}:${{ github.sha }}
+          registryUrl: ${{ secrets.REGISTRY_LOGIN_SERVER_DEPLOY }}
+          registryUsername: ${{ secrets.REGISTRY_USERNAME_DEPLOY}}
+          registryPassword: ${{ secrets.REGISTRY_PASSWORD_DEPLOY}}
+          updateConfigAndEnv: false

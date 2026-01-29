@@ -3,30 +3,38 @@ spring:
   application:
     name: ms-usuarios
 
-  config:
-    import: optional:configserver:http://localhost:8888
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    username: ${DB_USER:postgres.your-id-on-supabase}
+    password: ${DB_PASSWORD:your-password-on-supabase}
+    url: ${DB_URL:jdbc:postgresql://aws-0-us-west-2.pooler.supabase.com:5432/postgres}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+      max-lifetime: 60000
 
   security:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: http://ms-auth:8080/oauth2/jwks
+          # Debe coincidir con el "iss" del token (http://localhost:8081/auth)
+          issuer-uri: ${ISSUER_URI:https://gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io/auth}
 
+          # La ruta correcta es /oauth2/jwks, pasando por el gateway (/auth)
+          jwk-set-uri: ${JWK_SET_URI:https://gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io/auth/oauth2/jwks}
+          #issuer-uri: https://gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io/auth
+          #jwk-set-uri: https://gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io/auth/.well-known/jwks.json
 
-eureka:
-  client:
-    serviceUrl:
-      # FORZAMOS la dirección de Eureka en la nube
-      defaultZone: "http://ms-eureka:8761/eureka/"
-    register-with-eureka: true
-    fetch-registry: true
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        default_schema: ms_usuarios
+    database: postgresql
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
 
-management:
-  otlp:
-    metrics:
-      export:
-        enabled: false
-    tracing:
-      export:
-        enabled: false
-        
+server:
+  port: 9091

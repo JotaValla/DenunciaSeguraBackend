@@ -1,29 +1,37 @@
+# Configuración de la aplicación ms-denuncias
 spring:
   application:
     name: ms-denuncias
-  config:
-    import: optional:configserver:http://localhost:8888
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    username: ${DB_USER:postgres.your-id-on-supabase}
+    password: ${DB_PASSWORD:your-password-on-supabase}
+    url: ${DB_URL:jdbc:postgresql://aws-0-us-west-2.pooler.supabase.com:5432/postgres}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+      max-lifetime: 60000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        default_schema: ms_denuncias
+    database: postgresql
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
   security:
     oauth2:
       resourceserver:
         jwt:
-          # Le decimos dónde están las llaves públicas en la red interna de Azure
-          jwk-set-uri: http://ms-auth:8080/oauth2/jwks
+          issuer-uri: ${ISSUER_URI:https://gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io/auth}
+          audiences: ds-web
 
-eureka:
-  client:
-    serviceUrl:
-      # FORZAMOS la dirección de Eureka en la nube
-      defaultZone: "http://ms-eureka:8761/eureka/"
-    register-with-eureka: true
-    fetch-registry: true
+server:
+  port: 8083
 
-
-management:
-  otlp:
-    metrics:
-      export:
-        enabled: false
-    tracing:
-      export:
-        enabled: false
+app:
+  security:
+    anonymity-secret: ${ANONYMITY_SECRET:ClavePorDefectoInseguraSoloParaDesarrolloLocal123}

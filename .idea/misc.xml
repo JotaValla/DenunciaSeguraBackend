@@ -17,6 +17,8 @@
     </option>
     <option name="ignoredFiles">
       <set>
+        <option value="$PROJECT_DIR$/ms-configServer/pom.xml" />
+        <option value="$PROJECT_DIR$/ms-eureka/pom.xml" />
         <option value="$PROJECT_DIR$/ms-gateway/pom.xml" />
       </set>
     </option>

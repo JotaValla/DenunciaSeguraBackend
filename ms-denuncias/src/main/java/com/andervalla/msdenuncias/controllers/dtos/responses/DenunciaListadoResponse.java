@@ -8,10 +8,10 @@ import java.time.Instant;
 
 public record DenunciaListadoResponse(
         Long id,
-        Long jefeId,
-        Long operadorId,
         String titulo,
-        Long ciudadanoId,
+        Reporter ciudadano,
+        Reporter operador,
+        Reporter jefe,
         Instant creadoEn,
         EntidadResponsableEnum entidadResponsable,
         EstadoDenunciaEnum estadoDenuncia,

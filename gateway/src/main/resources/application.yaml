@@ -1,46 +1,86 @@
+app:
+  cors:
+    allowed-origins:
+      - "http://localhost:4200"
+      - "https://denuncia-segura-frontend.vercel.app"
+      - "https://gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io"
+  security:
+    cookies:
+      access-token-name: ${APP_SECURITY_COOKIE_ACCESS_TOKEN:DS_ACCESS_TOKEN}
+
 spring:
   application:
     name: gateway
-  config:
-    # Quitamos el puerto :8888
-    import: "optional:configserver:http://ms-configserver"
+
+  # Rutas del gateway hacia los microservicios y el ms-auth (flujo OAuth2/login).
   cloud:
     gateway:
-      discovery:
-        locator:
-          enabled: true
-          lower-case-service-id: true
-      globalcors:
-        cors-configurations:
-          '[/**]':
-            allowedOrigins: "*"
-            allowedMethods:
-            - GET
-            - POST
-            - PUT
-            - DELETE
-            - OPTIONS
-            - PATCH
+      server:
+        webmvc:
+          routes:
+            # Logout personalizado del ms-auth (no se elimina el prefijo /auth).
+            - id: auth-logout
+              uri: ${URI_MS_AUTH:http://localhost:9092}
+              predicates:
+                - Path=/auth/logout
+              filters:
+                - SetRequestHeader=Host, ${GATEWAY_HOST:gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
+                - AddRequestHeader=Forwarded, proto=${FORWARDED_PROTO:https};host=${GATEWAY_HOST:gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
+                - AddRequestHeader=X-Forwarded-Proto, ${FORWARDED_PROTO:https}
+                - AddRequestHeader=X-Forwarded-Host, ${GATEWAY_HOST:gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
+                - AddRequestHeader=X-Forwarded-Port, ${FORWARDED_PORT:443}
+                - AddRequestHeader=X-Forwarded-Prefix, /auth
+
+            # Flujo OAuth2/login con prefijo /auth (se quita con StripPrefix).
+            - id: auth-oauth2
+              uri: ${URI_MS_AUTH:http://localhost:9092}
+              predicates:
+                - Path=/auth/oauth2/**,/auth/login/**,/auth/.well-known/**,/auth/actuator/**,/auth/register/**,/auth/password/**,/auth/default-ui.css,/auth/login.html,/auth/login.css,/auth/login.js,/auth/favicon.ico
+              filters:
+                - StripPrefix=1
+                - SetRequestHeader=Host, ${GATEWAY_HOST:gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
+                - AddRequestHeader=Forwarded, proto=${FORWARDED_PROTO:https};host=${GATEWAY_HOST:gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
+                - AddRequestHeader=X-Forwarded-Proto, ${FORWARDED_PROTO:https}
+                - AddRequestHeader=X-Forwarded-Host, ${GATEWAY_HOST:gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
+                - AddRequestHeader=X-Forwarded-Port, ${FORWARDED_PORT:443}
+                - AddRequestHeader=X-Forwarded-Prefix, /auth
+
+            - id: ms-usuarios
+              uri: ${URI_MS_USUARIOS:http://localhost:9091}
+              predicates:
+                - Path=/usuarios/**,/interno/usuarios/**
+
+            - id: ms-denuncias
+              uri: ${URI_MS_DENUNCIAS:http://localhost:8083}
+              predicates:
+                - Path=/api/denuncias/**
+              filters:
+                - RewritePath=/api/denuncias/?(?<segment>.*)/$, /api/denuncias/${segment}
+
+            - id: ms-evidencias
+              uri: ${URI_MS_EVIDENCIAS:http://localhost:8090}
+              predicates:
+                - Path=/interno/adjuntar/**,/interno/entidades/**,/interno/uploads/**,/interno/*/confirmar
+
   security:
     oauth2:
       resourceserver:
         jwt:
-          # CORRECCIÓN 1: Apuntamos al contenedor ms-auth interno
-          issuer-uri: http://ms-auth
+          issuer-uri: ${ISSUER_URI:https://gateway.orangestone-4ddca4b7.eastus2.azurecontainerapps.io}
 
-eureka:
-  client:
-    serviceUrl:
-      # Quitamos el puerto :8761
-      defaultZone: "http://ms-eureka/eureka/"
-    register-with-eureka: true
-    fetch-registry: true
+server:
+  port: 8081
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      cookie:
+        name: GATEWAYSESSION
 
-management:
-  otlp:
-    metrics:
-      export:
-        enabled: false
-    tracing:
-      export:
-        enabled: false
+logging:
+  level:
+    root: INFO
+    ACCESS: INFO
+    org.springframework.cloud.gateway: INFO
+    org.springframework.cloud.gateway.server.mvc: INFO
+    org.springframework.web: INFO
+    org.springframework.web.servlet.function: INFO

@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@FeignClient(name = "ms-usuarios")
+@FeignClient(name = "ms-usuarios", url = "${CLIENTS_USUARIOS_URI:http://localhost:9091}")
 public interface UsuariosClient {
 
     @GetMapping("/interno/usuarios/jefe")
