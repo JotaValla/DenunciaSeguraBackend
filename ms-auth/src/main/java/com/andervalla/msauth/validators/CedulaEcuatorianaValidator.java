@@ -16,7 +16,7 @@ public class CedulaEcuatorianaValidator implements ConstraintValidator<CedulaEcu
         if (!cedula.matches("\\d{10}")) {
             return false;
         }
-        if (Integer.parseInt(cedula) == 0) {
+        if (Long.parseLong(cedula) == 0) {
             return false;
         }
 

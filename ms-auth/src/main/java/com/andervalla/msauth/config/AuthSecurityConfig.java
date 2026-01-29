@@ -56,6 +56,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.security.web.authentication.logout.LogoutFilter;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.security.web.savedrequest.RequestCache;
+import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -286,6 +289,7 @@ public class AuthSecurityConfig {
                                                                       OAuth2TokenGenerator<?> tokenGenerator,
                                                                       RefreshTokenCookieFilter refreshTokenCookieFilter,
                                                                       AuthenticationEntryPoint tokenErrorEntryPoint,
+                                                                      RequestCache oauth2RequestCache,
                                                                       TokenCookieAuthenticationSuccessHandler tokenSuccessHandler) throws Exception {
         OAuth2AuthorizationServerConfigurer authorizationServerConfigurer =
                 new OAuth2AuthorizationServerConfigurer();
@@ -295,6 +299,7 @@ public class AuthSecurityConfig {
                 .sessionManagement(session -> session.sessionFixation().none())
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")))
+                .requestCache(cache -> cache.requestCache(oauth2RequestCache))
                 .csrf(csrf -> csrf.ignoringRequestMatchers(authorizationServerConfigurer.getEndpointsMatcher()))
                 .with(authorizationServerConfigurer, authServer -> authServer
                         .oidc(Customizer.withDefaults())
@@ -315,11 +320,14 @@ public class AuthSecurityConfig {
      */
     @Bean
     @Order(2)
-    public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http, SessionLoggingFilter sessionLoggingFilter) throws Exception {
+    public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http,
+                                                          SessionLoggingFilter sessionLoggingFilter,
+                                                          RequestCache oauth2RequestCache) throws Exception {
 
         http.authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
                 .sessionManagement(session -> session.sessionFixation().none())
                 .formLogin(Customizer.withDefaults())
+                .requestCache(cache -> cache.requestCache(oauth2RequestCache))
                 // El login se usa solo para el flujo OAuth2; evitamos fallos de CSRF con navegadores/proxies intermedios.
                 .csrf(csrf -> csrf.ignoringRequestMatchers("/login"))
                 .addFilterBefore(sessionLoggingFilter, UsernamePasswordAuthenticationFilter.class);
@@ -332,6 +340,22 @@ public class AuthSecurityConfig {
     @Bean
     public AuthenticationEntryPoint tokenErrorEntryPoint() {
         return new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED);
+    }
+
+    /**
+     * Solo guarda la solicitud original del flujo OAuth2, evitando que /login?error
+     * reemplace el redirect después de un intento fallido.
+     */
+    @Bean
+    public RequestCache oauth2RequestCache() {
+        HttpSessionRequestCache cache = new HttpSessionRequestCache();
+        RequestMatcher matcher = request -> {
+            String uri = request.getRequestURI();
+            // Acepta /oauth2/authorize directo o con prefijo /auth por X-Forwarded-Prefix.
+            return uri != null && uri.contains("/oauth2/authorize");
+        };
+        cache.setRequestMatcher(matcher);
+        return cache;
     }
 
     /**
